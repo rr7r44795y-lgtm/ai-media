@@ -3,16 +3,14 @@ import { v4 as uuid } from 'uuid';
 import { supabaseService } from '../utils/supabaseClient.js';
 import { matchesForbiddenWord } from '../utils/blocklist.js';
 import { cancelSchedule } from '../services/scheduleService.js';
-import { ScheduleCalendarItem, ScheduleRecord, ScheduleStatus } from '../types.js';
+import { ScheduleCalendarItem, ScheduleRecord, ScheduleStatus, SocialPlatform } from '../types.js';
 import { extractTextPreview } from '../utils/string.js';
-
-type SchedulePlatform = 'ig' | 'facebook' | 'linkedin' | 'youtube_draft';
 
 const router = Router();
 
 const limits: Record<string, number> = {
-  ig: 2200,
-  facebook: 20000,
+  instagram_business: 2200,
+  facebook_page: 20000,
   linkedin: 3000,
 };
 
@@ -24,7 +22,7 @@ router.post('/create', async (req, res) => {
     unified_text: string;
     platform_texts: Record<string, unknown>;
     scheduled_times: Record<string, string>;
-    selected_platforms: SchedulePlatform[];
+    selected_platforms: SocialPlatform[];
   };
 
   if (matchesForbiddenWord(unified_text)) {
