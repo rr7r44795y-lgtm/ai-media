@@ -7,7 +7,7 @@ const platforms: { id: string; label: string }[] = [
   { id: 'instagram_business', label: 'Instagram Business' },
   { id: 'facebook_page', label: 'Facebook Page' },
   { id: 'linkedin', label: 'LinkedIn' },
-  { id: 'youtube', label: 'YouTube' },
+  { id: 'youtube_draft', label: 'YouTube Draft' },
 ];
 
 export default function OAuthConnections({ session }: { session: any }) {
@@ -15,8 +15,7 @@ export default function OAuthConnections({ session }: { session: any }) {
 
   const connect = async (platform: string) => {
     const token = session?.access_token;
-    const state = uuid();
-    const res = await fetch(`/api/oauth/${platform}/start?state=${state}`, {
+    const res = await fetch(`/api/oauth/${platform}/start`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     const data = await res.json();
@@ -24,11 +23,11 @@ export default function OAuthConnections({ session }: { session: any }) {
   };
 
   const mockCallback = async (platform: string) => {
-    const token = session?.access_token;
+    const state = uuid();
     await fetch(`/api/oauth/${platform}/callback`, {
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code: 'demo-code', state: 'demo-state' }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: 'demo-code', state }),
     });
     setStatus((prev) => ({ ...prev, [platform]: 'connected' }));
   };

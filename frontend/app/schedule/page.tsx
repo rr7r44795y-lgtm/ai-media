@@ -66,14 +66,14 @@ export default function SchedulePage() {
     const res = await fetch('/api/format/generate', {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ unified_text: unifiedText, platforms: ['ig', 'facebook', 'linkedin', 'youtube'] }),
+      body: JSON.stringify({ unified_text: unifiedText, platforms: ['ig', 'facebook', 'linkedin', 'youtube_draft'] }),
     });
     const data = await res.json();
     setPlatformTexts({
       ig: data.ig || '',
       facebook: data.facebook || '',
       linkedin: data.linkedin || '',
-      youtube_draft: data.youtube || data.youtube_draft || { title: '', description: '' },
+      youtube_draft: data.youtube_draft || { title: '', description: '' },
     });
   };
 

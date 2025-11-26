@@ -1,9 +1,11 @@
 import express from 'express';
 import bodyParser from 'body-parser';
 import dotenv from 'dotenv';
+import cookieParser from 'cookie-parser';
 import authMiddleware from './middleware/authMiddleware.js';
 import contentRouter from './routes/content.js';
 import oauthRouter from './routes/oauth.js';
+import oauthAccountsRouter from './routes/oauthAccounts.js';
 import billingRouter from './routes/billing.js';
 import formatRouter from './routes/format.js';
 import scheduleRouter from './routes/schedule.js';
@@ -16,9 +18,11 @@ dotenv.config();
 
 const app = express();
 app.use(bodyParser.json());
+app.use(cookieParser());
 
 app.use('/api/content', authMiddleware, contentRouter);
-app.use('/api/oauth', authMiddleware, oauthRouter);
+app.use('/api/oauth/accounts', authMiddleware, oauthAccountsRouter);
+app.use('/api/oauth', oauthRouter);
 app.use('/api/billing', authMiddleware, billingRouter);
 app.use('/api/format', authMiddleware, formatRouter);
 app.use('/api/schedule', authMiddleware, scheduleRouter);

@@ -61,7 +61,7 @@ const complianceAudit = async (): Promise<void> => {
   const { data: accounts } = await supabaseService.from('social_accounts').select('id, scopes');
   for (const account of accounts || []) {
     const scopes = (account as { scopes?: string[] }).scopes || [];
-    const allowed = ['pages_manage_posts', 'instagram_basic', 'linkedin_posts', 'youtube'];
+    const allowed = ['pages_manage_posts', 'instagram_basic', 'linkedin_posts', 'youtube', 'youtube_draft'];
     if (scopes.some((s) => !allowed.includes(s))) {
       await supabaseService.from('social_accounts').update({ disabled: true }).eq('id', account.id);
       await sendAdminAlert('OAuth scope violation', `Disabled account ${account.id} due to scopes`);

@@ -31,15 +31,20 @@ async function getAccount(id: string, userId: string): Promise<SocialAccount> {
 
 export async function publishPost(platform: PublishPlatform, payload: PublishPayload, userId: string) {
   const socialAccount = await getAccount(payload.social_account_id, userId);
+  const fallbackUrl = (id: string) => `https://social.example.com/${platform}/posts/${id}`;
   switch (platform) {
     case 'instagram_business':
-      return publishInstagram({ platform_text: payload.platform_text as string, media_urls: payload.media_urls, socialAccount });
+      const ig = await publishInstagram({ platform_text: payload.platform_text as string, media_urls: payload.media_urls, socialAccount });
+      return { success: true, url: fallbackUrl(ig.id) };
     case 'facebook_page':
-      return publishFacebook({ platform_text: payload.platform_text as string, media_urls: payload.media_urls, socialAccount });
+      const fb = await publishFacebook({ platform_text: payload.platform_text as string, media_urls: payload.media_urls, socialAccount });
+      return { success: true, url: fallbackUrl(fb.id) };
     case 'linkedin':
-      return publishLinkedIn({ platform_text: payload.platform_text as string, media_urls: payload.media_urls, socialAccount });
+      const li = await publishLinkedIn({ platform_text: payload.platform_text as string, media_urls: payload.media_urls, socialAccount });
+      return { success: true, url: fallbackUrl(li.id) };
     case 'youtube_draft':
-      return publishYouTubeDraft({ platform_text: payload.platform_text as { title: string; description: string }, media_urls: payload.media_urls, socialAccount });
+      const yt = await publishYouTubeDraft({ platform_text: payload.platform_text as { title: string; description: string }, media_urls: payload.media_urls, socialAccount });
+      return { success: true, url: fallbackUrl(yt.id) };
     default:
       throw new Error('Unsupported platform');
   }

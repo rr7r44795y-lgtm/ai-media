@@ -1,4 +1,3 @@
-import { encryptToken } from '../utils/encryption.js';
 import { OAuthTokens } from './linkedin.js';
 
 export function buildYouTubeAuthUrl(state: string, redirect: string, clientId: string) {
@@ -15,8 +14,8 @@ export function buildYouTubeAuthUrl(state: string, redirect: string, clientId: s
 
 export async function exchangeYouTubeCode(code: string): Promise<OAuthTokens> {
   return {
-    accessToken: encryptToken(`yt_${code}`),
-    refreshToken: encryptToken(`yt_refresh_${code}`),
+    accessToken: `yt_${code}`,
+    refreshToken: `yt_refresh_${code}`,
     expiresAt: new Date(Date.now() + 3600_000).toISOString(),
     externalId: `youtube-channel-${code}`,
   };
