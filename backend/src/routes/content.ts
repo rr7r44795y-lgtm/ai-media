@@ -51,20 +51,30 @@ router.post('/complete', async (req, res) => {
 
 router.get('/list', async (req, res) => {
   const user = (req as any).user;
-  const { data, error } = await supabaseService.from('contents').select('*').eq('user_id', user.id).order('created_at', { ascending: false });
+  const { data, error } = await supabaseService
+    .from('contents')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false });
   if (error) {
     return res.status(500).json({ error: 'Unable to list content' });
   }
 
   const signed = await Promise.all(
     (data || []).map(async (item) => {
+      let signedUrl: string | undefined;
       if (item.url) {
-        const { data: signedUrl } = await supabaseService.storage
-          .from(BUCKET)
-          .createSignedUrl(item.url, 60 * 60 * 24);
-        return { ...item, signedUrl: signedUrl?.signedUrl };
+        const urlRes = await supabaseService.storage.from(BUCKET).createSignedUrl(item.url, 60 * 60 * 24);
+        signedUrl = urlRes.data?.signedUrl;
       }
-      return item;
+      const { data: tagRows } = await supabaseService
+        .from('content_tags')
+        .select('tag_id,tags(name)')
+        .eq('content_id', item.id)
+        .eq('user_id', user.id)
+        .is('deleted_at', null);
+      const tags = (tagRows || []).map((row) => ({ id: row.tag_id, name: (row as any).tags?.name }));
+      return { ...item, signedUrl, tags };
     })
   );
 

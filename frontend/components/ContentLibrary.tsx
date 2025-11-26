@@ -23,6 +23,9 @@ export default function ContentLibrary({ session }: { session: any }) {
   const [files, setFiles] = useState<FileList | null>(null);
   const [items, setItems] = useState<any[]>([]);
   const [textContent, setTextContent] = useState('');
+  const [tags, setTags] = useState<any[]>([]);
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [loading, setLoading] = useState(false);
 
   const upload = async () => {
     if (!files || files.length === 0) return;
@@ -73,11 +76,33 @@ export default function ContentLibrary({ session }: { session: any }) {
   };
 
   const load = async () => {
+    setLoading(true);
     const token = session?.access_token;
     const res = await fetch('/api/content/list', { headers: { Authorization: `Bearer ${token}` } });
     const data = await res.json();
     setItems(data);
+    const tagRes = await fetch('/api/tags', { headers: { Authorization: `Bearer ${token}` } });
+    setTags(await tagRes.json());
+    setLoading(false);
   };
+
+  const assignTag = async (contentId: string, name: string) => {
+    const token = session?.access_token;
+    await fetch('/api/tags/assign', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content_id: contentId, name }),
+    });
+    load();
+  };
+
+  const toggleFilter = (id: string) => {
+    setSelectedTags((prev) => (prev.includes(id) ? prev.filter((t) => t !== id) : [...prev, id]));
+  };
+
+  const filteredItems = selectedTags.length
+    ? items.filter((item) => item.tags?.some((t: any) => selectedTags.includes(t.id)))
+    : items;
 
   return (
     <div className="bg-white p-4 rounded shadow">
@@ -109,19 +134,58 @@ export default function ContentLibrary({ session }: { session: any }) {
           </button>
         </div>
       </div>
-      <div className="grid grid-cols-2 gap-3 mt-4">
-        {items.map((item) => (
-          <div key={item.id} className="border rounded p-3">
-            <div className="text-sm font-semibold">{item.type}</div>
-            {item.type === 'text' ? (
-              <p className="text-slate-700 text-sm whitespace-pre-wrap">{item.text}</p>
-            ) : (
-              <a className="text-indigo-600 underline" href={item.signedUrl} target="_blank" rel="noreferrer">
-                View file
-              </a>
-            )}
+      <div className="grid grid-cols-4 gap-4 mt-4">
+        <div className="col-span-1 border rounded p-3 h-full">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="font-semibold">Tags</h3>
+            <button className="text-xs underline" onClick={load}>
+              Refresh
+            </button>
           </div>
-        ))}
+          <p className="text-xs text-slate-500 mb-2">Filter by multiple tags.</p>
+          <div className="space-y-1 overflow-y-auto max-h-72">
+            {tags.map((tag) => (
+              <label key={tag.id} className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={selectedTags.includes(tag.id)} onChange={() => toggleFilter(tag.id)} />
+                <span>{tag.name}</span>
+              </label>
+            ))}
+            {tags.length === 0 && <p className="text-xs text-slate-500">No tags yet</p>}
+          </div>
+        </div>
+        <div className="col-span-3 grid grid-cols-2 gap-3">
+          {filteredItems.map((item) => (
+            <div key={item.id} className="border rounded p-3 space-y-2">
+              <div className="text-sm font-semibold flex justify-between items-center">
+                <span>{item.type}</span>
+                <button
+                  className="text-xs underline"
+                  onClick={() => {
+                    const name = prompt('Add tag');
+                    if (name) assignTag(item.id, name);
+                  }}
+                >
+                  Add tag
+                </button>
+              </div>
+              {item.type === 'text' ? (
+                <p className="text-slate-700 text-sm whitespace-pre-wrap">{item.text}</p>
+              ) : (
+                <a className="text-indigo-600 underline" href={item.signedUrl} target="_blank" rel="noreferrer">
+                  View file
+                </a>
+              )}
+              <div className="flex flex-wrap gap-2">
+                {(item.tags || []).map((tag: any) => (
+                  <span key={tag.id} className="px-2 py-1 bg-slate-100 text-xs rounded">
+                    {tag.name}
+                  </span>
+                ))}
+              </div>
+            </div>
+          ))}
+          {loading && <div className="text-sm">Loading...</div>}
+        </div>
       </div>
     </div>
   );

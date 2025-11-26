@@ -1,22 +1,29 @@
+import { v4 as uuid } from 'uuid';
+import { buildLinkedInAuthUrl, exchangeLinkedInCode } from '../oauth/linkedin.js';
+import { buildFacebookAuthUrl, exchangeFacebookCode } from '../oauth/facebook.js';
+import { buildInstagramAuthUrl, exchangeInstagramCode } from '../oauth/instagram.js';
+import { buildYouTubeAuthUrl, exchangeYouTubeCode } from '../oauth/youtube.js';
 import { supabaseService } from '../utils/supabaseClient.js';
 import { encryptToken } from '../utils/encryption.js';
-import { v4 as uuid } from 'uuid';
 
 export type Platform = 'instagram_business' | 'facebook_page' | 'linkedin' | 'youtube';
 
 export function buildAuthorizeUrl(platform: Platform, state: string): string {
-  const base = process.env.BACKEND_BASE_URL;
-  const redirect = encodeURIComponent(`${base}/api/oauth/${platform}/callback`);
-  const clientId = process.env[`OAUTH_${platform.toUpperCase()}_CLIENT_ID`];
-  const scopes = {
-    instagram_business: 'instagram_basic,pages_show_list',
-    facebook_page: 'pages_show_list',
-    linkedin: 'r_liteprofile w_member_social',
-    youtube: 'https://www.googleapis.com/auth/youtube.upload',
-  }[platform];
-  return `https://auth.${platform}.com/authorize?client_id=${clientId}&redirect_uri=${redirect}&response_type=code&scope=${encodeURIComponent(
-    scopes
-  )}&state=${state}`;
+  const base = process.env.BACKEND_BASE_URL || '';
+  const redirect = `${base}/oauth/${platform}/callback`;
+  const clientId = process.env[`OAUTH_${platform.toUpperCase()}_CLIENT_ID`] || '';
+  switch (platform) {
+    case 'linkedin':
+      return buildLinkedInAuthUrl(state, redirect, clientId);
+    case 'facebook_page':
+      return buildFacebookAuthUrl(state, redirect, clientId);
+    case 'instagram_business':
+      return buildInstagramAuthUrl(state, redirect, clientId);
+    case 'youtube':
+      return buildYouTubeAuthUrl(state, redirect, clientId);
+    default:
+      throw new Error('Unsupported platform');
+  }
 }
 
 export async function saveTokens({
@@ -46,4 +53,19 @@ export async function saveTokens({
     },
     { onConflict: 'user_id,platform' }
   );
+}
+
+export async function exchangeCode(platform: Platform, code: string) {
+  switch (platform) {
+    case 'linkedin':
+      return exchangeLinkedInCode(code);
+    case 'facebook_page':
+      return exchangeFacebookCode(code);
+    case 'instagram_business':
+      return exchangeInstagramCode(code);
+    case 'youtube':
+      return exchangeYouTubeCode(code);
+    default:
+      throw new Error('Unsupported platform');
+  }
 }
