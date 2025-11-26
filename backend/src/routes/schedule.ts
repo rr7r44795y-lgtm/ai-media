@@ -3,7 +3,8 @@ import { v4 as uuid } from 'uuid';
 import { supabaseService } from '../utils/supabaseClient.js';
 import { matchesForbiddenWord } from '../utils/blocklist.js';
 import { cancelSchedule } from '../services/scheduleService.js';
-import { ScheduleRecord, ScheduleStatus } from '../types.js';
+import { ScheduleCalendarItem, ScheduleRecord, ScheduleStatus } from '../types.js';
+import { extractTextPreview } from '../utils/string.js';
 
 type SchedulePlatform = 'ig' | 'facebook' | 'linkedin' | 'youtube_draft';
 
@@ -100,6 +101,67 @@ router.get('/list', async (req, res) => {
     .order('scheduled_time', { ascending: false });
   if (error) return res.status(500).json({ error: 'Unable to load schedules' });
   return res.json(data as ScheduleRecord[]);
+});
+
+const isoDateRegex = /^\d{4}-\d{2}-\d{2}$/;
+
+const parseDateOnly = (dateStr: string): Date | null => {
+  if (!isoDateRegex.test(dateStr)) return null;
+  const parsed = Date.parse(`${dateStr}T00:00:00.000Z`);
+  if (Number.isNaN(parsed)) return null;
+  return new Date(parsed);
+};
+
+router.get('/calendar', async (req, res) => {
+  const user = req.user;
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
+
+  const { start, end } = req.query as { start?: string; end?: string };
+  if (!start || !end) {
+    return res.status(400).json({ error: 'Missing date range' });
+  }
+
+  const startDate = parseDateOnly(start);
+  const endDate = parseDateOnly(end);
+  if (!startDate || !endDate) {
+    return res.status(400).json({ error: 'Invalid date format' });
+  }
+
+  if (endDate.getTime() < startDate.getTime()) {
+    return res.status(400).json({ error: 'Invalid date range' });
+  }
+
+  const diffDays = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24);
+  if (diffDays > 60) {
+    return res.status(422).json({ error: 'Date range too large' });
+  }
+
+  const startIso = new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate(), 0, 0, 0)).toISOString();
+  const endIso = new Date(Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate(), 23, 59, 59, 999)).toISOString();
+
+  const { data, error } = await supabaseService
+    .from('schedules')
+    .select('*')
+    .eq('user_id', user.id)
+    .gte('scheduled_time', startIso)
+    .lte('scheduled_time', endIso)
+    .order('scheduled_time', { ascending: true });
+
+  if (error) {
+    return res.status(500).json({ error: 'Unable to load calendar' });
+  }
+
+  const items: ScheduleCalendarItem[] = (data as ScheduleRecord[]).map((row) => ({
+    id: row.id,
+    platform: row.platform,
+    scheduled_time: row.scheduled_time,
+    status: row.status,
+    platform_text_preview: extractTextPreview(row.platform_text, 20),
+    content_id: row.content_id,
+    tries: row.tries,
+  }));
+
+  return res.json(items);
 });
 
 router.get('/:id', async (req, res) => {

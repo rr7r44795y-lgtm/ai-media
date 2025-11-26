@@ -24,6 +24,16 @@ export interface ScheduleRecord {
   updated_at?: string;
 }
 
+export interface ScheduleCalendarItem {
+  id: string;
+  platform: string;
+  scheduled_time: string;
+  status: ScheduleStatus;
+  platform_text_preview: string;
+  content_id: string;
+  tries: number;
+}
+
 export interface WorkerPublishResult {
   success: boolean;
   url?: string;

@@ -79,3 +79,13 @@ export type Database = {
     };
   };
 };
+
+export type ScheduleCalendarItem = {
+  id: string;
+  platform: string;
+  scheduled_time: string;
+  status: 'pending' | 'processing' | 'success' | 'failed' | 'cancelled';
+  platform_text_preview: string;
+  content_id: string;
+  tries: number;
+};
