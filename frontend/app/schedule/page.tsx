@@ -4,18 +4,18 @@ import { useEffect, useMemo, useState } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { getClient } from '../../lib/supabaseClient';
 
-type PlatformKey = 'ig' | 'facebook' | 'linkedin' | 'youtube_draft';
+type PlatformKey = 'instagram_business' | 'facebook_page' | 'linkedin' | 'youtube_draft';
 
 interface PlatformText {
-  ig: string;
-  facebook: string;
+  instagram_business: string;
+  facebook_page: string;
   linkedin: string;
   youtube_draft: { title: string; description: string };
 }
 
 const platforms: { id: PlatformKey; label: string }[] = [
-  { id: 'ig', label: 'Instagram Business' },
-  { id: 'facebook', label: 'Facebook Page' },
+  { id: 'instagram_business', label: 'Instagram Business' },
+  { id: 'facebook_page', label: 'Facebook Page' },
   { id: 'linkedin', label: 'LinkedIn' },
   { id: 'youtube_draft', label: 'YouTube Draft' },
 ];
@@ -34,16 +34,19 @@ export default function SchedulePage() {
   const [selectedContent, setSelectedContent] = useState<string>('');
   const [unifiedText, setUnifiedText] = useState('');
   const [platformTexts, setPlatformTexts] = useState<PlatformText>({
-    ig: '',
-    facebook: '',
+    instagram_business: '',
+    facebook_page: '',
     linkedin: '',
     youtube_draft: { title: '', description: '' },
   });
-  const [selectedPlatforms, setSelectedPlatforms] = useState<PlatformKey[]>(['ig', 'facebook']);
+  const [selectedPlatforms, setSelectedPlatforms] = useState<PlatformKey[]>([
+    'instagram_business',
+    'facebook_page',
+  ]);
   const [scheduledTimes, setScheduledTimes] = useState<Record<string, string>>({});
   const [suggestions] = useState<Record<string, string>>({
-    ig: new Date(Date.now() + 3600_000).toISOString().slice(0, 16),
-    facebook: new Date(Date.now() + 5400_000).toISOString().slice(0, 16),
+    instagram_business: new Date(Date.now() + 3600_000).toISOString().slice(0, 16),
+    facebook_page: new Date(Date.now() + 5400_000).toISOString().slice(0, 16),
     linkedin: new Date(Date.now() + 7200_000).toISOString().slice(0, 16),
     youtube_draft: new Date(Date.now() + 9000_000).toISOString().slice(0, 16),
   });
@@ -66,12 +69,15 @@ export default function SchedulePage() {
     const res = await fetch('/api/format/generate', {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ unified_text: unifiedText, platforms: ['ig', 'facebook', 'linkedin', 'youtube_draft'] }),
+      body: JSON.stringify({
+        unified_text: unifiedText,
+        platforms: ['instagram_business', 'facebook_page', 'linkedin', 'youtube_draft'],
+      }),
     });
     const data = await res.json();
     setPlatformTexts({
-      ig: data.ig || '',
-      facebook: data.facebook || '',
+      instagram_business: data.instagram_business || '',
+      facebook_page: data.facebook_page || '',
       linkedin: data.linkedin || '',
       youtube_draft: data.youtube_draft || { title: '', description: '' },
     });
@@ -145,13 +151,11 @@ export default function SchedulePage() {
                     />
                     {p.label}
                   </label>
-                  <p className="text-xs text-slate-500">Suggested: {suggestions[p.id === 'youtube_draft' ? 'youtube_draft' : p.id]}</p>
+                  <p className="text-xs text-slate-500">Suggested: {suggestions[p.id]}</p>
                 </div>
                 <button
                   className="text-xs underline"
-                  onClick={() =>
-                    setScheduledTimes((prev) => ({ ...prev, [p.id]: suggestions[p.id === 'youtube_draft' ? 'youtube_draft' : p.id] }))
-                  }
+                  onClick={() => setScheduledTimes((prev) => ({ ...prev, [p.id]: suggestions[p.id] }))}
                 >
                   Use suggestion
                 </button>

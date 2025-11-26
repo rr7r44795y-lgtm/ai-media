@@ -1,13 +1,13 @@
 import { stripEmojis } from '../utils/text.js';
 
-export type PlatformKey = 'ig' | 'facebook' | 'linkedin' | 'youtube_draft';
+export type PlatformKey = 'instagram_business' | 'facebook_page' | 'linkedin' | 'youtube_draft';
 
 const config = {
-  ig: {
+  instagram_business: {
     maxLength: 2200,
     cta: '👇 Follow us for more updates',
   },
-  facebook: {
+  facebook_page: {
     maxLength: 63000,
     engagementQuestion: 'What do you think? Share below!'
   },
@@ -50,19 +50,19 @@ function addHashtags(text: string): string {
 function formatInstagram(text: string): string {
   const sanitized = sanitize(text);
   const withBreaks = sanitized.replace(/\n{2,}/g, '\n\n');
-  const truncated = withBreaks.length > config.ig.maxLength
-    ? `${withBreaks.slice(0, config.ig.maxLength - 3)}...`
+  const truncated = withBreaks.length > config.instagram_business.maxLength
+    ? `${withBreaks.slice(0, config.instagram_business.maxLength - 3)}...`
     : withBreaks;
-  return `${truncated}\n${config.ig.cta}`.trim();
+  return `${truncated}\n${config.instagram_business.cta}`.trim();
 }
 
 function formatFacebook(text: string): string {
   const sanitized = sanitize(text);
-  if (sanitized.length > config.facebook.maxLength) {
-    return sanitized.slice(0, config.facebook.maxLength - 3) + '...';
+  if (sanitized.length > config.facebook_page.maxLength) {
+    return sanitized.slice(0, config.facebook_page.maxLength - 3) + '...';
   }
   const folded = foldParagraphs(sanitized);
-  return `${folded}\n${config.facebook.engagementQuestion}`.trim();
+  return `${folded}\n${config.facebook_page.engagementQuestion}`.trim();
 }
 
 function formatLinkedIn(text: string): string {
@@ -89,9 +89,9 @@ function formatYouTube(text: string): { title: string; description: string } {
 
 export function formatAdapter(platform: PlatformKey, text: string) {
   switch (platform) {
-    case 'ig':
+    case 'instagram_business':
       return formatInstagram(text);
-    case 'facebook':
+    case 'facebook_page':
       return formatFacebook(text);
     case 'linkedin':
       return formatLinkedIn(text);
