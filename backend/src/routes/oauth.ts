@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { exchangeCode, buildAuthorizeUrl, saveTokens, Platform } from '../services/oauth.js';
 import { refreshIfExpired } from '../utils/refreshToken.js';
+import { supabaseService } from '../utils/supabaseClient.js';
 import { createOAuthState, consumeOAuthState } from '../services/oauthStates.js';
 import authMiddleware from '../middleware/authMiddleware.js';
 
@@ -52,7 +53,31 @@ router.post('/:platform/refresh', authMiddleware, async (req, res) => {
   const user = req.user;
   if (!user) return res.status(401).json({ error: 'Unauthorized' });
   const platform = req.params.platform as Platform;
-  const refreshed = await refreshIfExpired(platform, user.id);
+  const socialAccountId = (req.body?.social_account_id || req.query?.social_account_id) as string | undefined;
+
+  if (!socialAccountId) {
+    return res.status(400).json({ error: 'social_account_id_required' });
+  }
+
+  const { data: account, error } = await supabaseService
+    .from('social_accounts')
+    .select('id, user_id, platform')
+    .eq('id', socialAccountId)
+    .single();
+
+  if (error || !account) {
+    return res.status(404).json({ error: 'OAuth not found' });
+  }
+
+  if (account.user_id !== user.id) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  if (account.platform !== platform) {
+    return res.status(400).json({ error: 'platform_mismatch' });
+  }
+
+  const refreshed = await refreshIfExpired(socialAccountId);
   if (refreshed.error) {
     return res.status(400).json({ error: refreshed.error });
   }
