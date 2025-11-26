@@ -47,7 +47,7 @@ export async function exchangeYouTubeCode(
   }
 
   const json = (await res.json()) as GoogleTokenResponse;
-  const expiresAt = new Date(Date.now() + json.expires_in * 1000).toISOString();
+  const expiresAt = new Date(Date.now() + json.expires_in * 1000);
 
   const profileRes = await fetch('https://www.googleapis.com/youtube/v3/channels?part=id&mine=true', {
     headers: { Authorization: `Bearer ${json.access_token}` },
@@ -64,11 +64,10 @@ export async function exchangeYouTubeCode(
   return [
     {
       platform: 'youtube_draft',
-      accessToken: json.access_token,
-      refreshToken: json.refresh_token || null,
-      expiresAt,
-      externalId,
-      scopes: json.scope ? json.scope.split(' ') : undefined,
+      access_token: json.access_token,
+      refresh_token: json.refresh_token || null,
+      expires_at: expiresAt,
+      external_account_id: externalId,
     },
   ];
 }

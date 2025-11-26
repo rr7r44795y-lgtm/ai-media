@@ -14,7 +14,9 @@ export async function createOAuthState(userId: string, redirectAfter?: string): 
     state,
     user_id: userId,
     redirect_after: redirectAfter || null,
+    created_at: new Date().toISOString(),
   };
+
   const { error } = await supabaseService.from('oauth_states').insert(record);
   if (error) {
     throw new Error('Unable to create OAuth state');
@@ -22,13 +24,28 @@ export async function createOAuthState(userId: string, redirectAfter?: string): 
   return record;
 }
 
-export async function consumeOAuthState(state: string): Promise<OAuthStateRow | null> {
+export async function consumeOAuthState(state: string): Promise<OAuthStateRow> {
   const { data, error } = await supabaseService
     .from('oauth_states')
-    .delete()
-    .eq('state', state)
     .select('*')
+    .eq('state', state)
     .maybeSingle();
-  if (error) return null;
-  return (data as OAuthStateRow | null) || null;
+
+  if (error || !data) {
+    throw new Error('invalid_state');
+  }
+
+  const createdAt = data.created_at ? new Date(data.created_at) : null;
+  const tenMinutesAgo = new Date(Date.now() - 10 * 60 * 1000);
+  if (createdAt && createdAt < tenMinutesAgo) {
+    await supabaseService.from('oauth_states').delete().eq('state', state);
+    throw new Error('invalid_state');
+  }
+
+  const { error: deleteError } = await supabaseService.from('oauth_states').delete().eq('state', state);
+  if (deleteError) {
+    throw new Error('invalid_state');
+  }
+
+  return data as OAuthStateRow;
 }

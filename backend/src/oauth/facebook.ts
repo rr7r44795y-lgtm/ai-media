@@ -54,9 +54,7 @@ export async function exchangeFacebookCode(
   });
   const longToken = await exchangeForLongLivedToken(longParams);
 
-  const expiresAt = longToken.expires_in
-    ? new Date(Date.now() + longToken.expires_in * 1000).toISOString()
-    : null;
+  const expiresAt = longToken.expires_in ? new Date(Date.now() + longToken.expires_in * 1000) : null;
 
   const pagesRes = await fetch(
     `https://graph.facebook.com/v20.0/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${encodeURIComponent(
@@ -74,9 +72,9 @@ export async function exchangeFacebookCode(
 
   return pages.map<OAuthTokenResult>((page) => ({
     platform: 'facebook_page',
-    accessToken: page.access_token || longToken.access_token,
-    refreshToken: null,
-    expiresAt,
-    externalId: page.id,
+    access_token: page.access_token || longToken.access_token,
+    refresh_token: null,
+    expires_at: expiresAt,
+    external_account_id: page.id,
   }));
 }
