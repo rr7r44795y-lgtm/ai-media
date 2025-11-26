@@ -43,20 +43,21 @@ export function buildAuthorizeUrl(platform: Platform, state: string): string {
 
 export async function saveTokens(userId: string, tokenSets: OAuthTokenResult[]) {
   for (const token of tokenSets) {
-    await supabaseService.from('social_accounts').upsert(
-      {
-        id: uuid(),
-        user_id: userId,
-        platform: token.platform,
-        external_account_id: token.externalId,
-        access_token_encrypted: encryptToken(token.accessToken),
-        refresh_token_encrypted: token.refreshToken ? encryptToken(token.refreshToken) : null,
-        expires_at: token.expiresAt || null,
-        scopes: token.scopes || null,
-        disabled: false,
-      },
-      { onConflict: 'user_id,platform,external_account_id' }
-    );
+    await supabaseService
+      .from('social_accounts')
+      .upsert(
+        {
+          id: uuid(),
+          user_id: userId,
+          platform: token.platform,
+          external_account_id: token.external_account_id,
+          access_token_encrypted: encryptToken(token.access_token),
+          refresh_token_encrypted: token.refresh_token ? encryptToken(token.refresh_token) : null,
+          expires_at: token.expires_at ? token.expires_at.toISOString() : null,
+          disabled: false,
+        },
+        { onConflict: 'user_id,platform,external_account_id' }
+      );
   }
 }
 

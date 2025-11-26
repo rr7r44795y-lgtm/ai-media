@@ -7,11 +7,10 @@ export type SocialPlatform = 'instagram_business' | 'facebook_page' | 'linkedin'
 
 export interface OAuthTokenResult {
   platform: SocialPlatform;
-  accessToken: string;
-  refreshToken?: string | null;
-  expiresAt?: string | null;
-  externalId: string;
-  scopes?: string[];
+  external_account_id: string;
+  access_token: string;
+  refresh_token?: string | null;
+  expires_at: Date | null;
 }
 
 export type ScheduleStatus = 'pending' | 'processing' | 'success' | 'failed' | 'cancelled';

@@ -43,7 +43,7 @@ export async function exchangeLinkedInCode(
   }
 
   const tokenJson = (await res.json()) as LinkedInTokenResponse;
-  const expiresAt = new Date(Date.now() + tokenJson.expires_in * 1000).toISOString();
+  const expiresAt = new Date(Date.now() + tokenJson.expires_in * 1000);
 
   const profileRes = await fetch('https://api.linkedin.com/v2/me', {
     headers: { Authorization: `Bearer ${tokenJson.access_token}` },
@@ -60,10 +60,10 @@ export async function exchangeLinkedInCode(
   return [
     {
       platform: 'linkedin',
-      accessToken: tokenJson.access_token,
-      refreshToken: tokenJson.refresh_token || null,
-      expiresAt,
-      externalId,
+      access_token: tokenJson.access_token,
+      refresh_token: tokenJson.refresh_token || null,
+      expires_at: expiresAt,
+      external_account_id: externalId,
     },
   ];
 }
