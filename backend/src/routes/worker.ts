@@ -3,6 +3,7 @@ import { supabaseService } from '../utils/supabaseClient.js';
 import { markFailure, markProcessing, markSuccess } from '../services/scheduleService.js';
 import { publishToPlatform } from '../services/platformPublisher.js';
 import { ScheduleRecord } from '../types.js';
+import { createSignedContentLinks } from '../utils/storage.js';
 
 const router = Router();
 
@@ -31,11 +32,30 @@ router.post('/publish', async (req, res) => {
       await markSuccess(schedule.id, result.url);
       return res.json({ status: 'success', url: result.url });
     }
-    await markFailure(schedule, result.error || 'Unknown error');
-    return res.status(500).json({ error: result.error });
+    const errorMessage = result.error || 'Unknown error';
+    const fallbackLinks = result.fallback_links || (result.fatal ? await createSignedContentLinks(schedule.content_id) : []);
+    const failureResult = await markFailure(schedule, errorMessage, {
+      forceFallback: result.fatal,
+      signedLinks: fallbackLinks.length ? fallbackLinks : undefined,
+    });
+
+    if (failureResult.fallbackTriggered) {
+      return res.status(500).json({ error: errorMessage, fallback: { sent: true, links: failureResult.signedLinks } });
+    }
+
+    const { data: updatedSchedule } = await supabaseService
+      .from('schedules')
+      .select('*')
+      .eq('id', schedule.id)
+      .maybeSingle();
+
+    return res.status(500).json({ error: errorMessage, schedule: updatedSchedule });
   } catch (e) {
     const errMsg = e instanceof Error ? e.message : 'Internal error';
-    await markFailure(schedule, errMsg);
+    const failureResult = await markFailure(schedule, errMsg);
+    if (failureResult.fallbackTriggered) {
+      return res.status(500).json({ error: errMsg, fallback: { sent: true, links: failureResult.signedLinks } });
+    }
     return res.status(500).json({ error: errMsg });
   }
 });

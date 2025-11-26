@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import { ScheduleRecord } from '../types.js';
+import { buildFallbackHtml, buildFallbackText } from '../emails/fallbackEmail.js';
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST,
@@ -18,17 +19,8 @@ export const sendFallbackEmail = async (
   error: string
 ): Promise<void> => {
   if (!process.env.ALERT_EMAIL_TO) return;
-  const html = `
-    <h2>Fallback required for schedule ${schedule.id}</h2>
-    <p>Status: failed after retries</p>
-    <p>Error: ${error}</p>
-    <p>Platform: ${schedule.platform}</p>
-    <p>Scheduled time: ${schedule.scheduled_time}</p>
-    <h3>Content links</h3>
-    <ul>${signedLinks.map((l) => `<li><a href="${l}">${l}</a></li>`).join('')}</ul>
-    <p>Legal: All content is provided exactly as input by the user. The user is solely responsible for content accuracy, legality, and copyright compliance.</p>
-  `;
-  const text = `Fallback for schedule ${schedule.id} on ${schedule.platform}\nError: ${error}\nLinks:${signedLinks.join('\n')}`;
+  const html = buildFallbackHtml(schedule, signedLinks, error);
+  const text = buildFallbackText(schedule, signedLinks, error);
   await transporter.sendMail({
     from: process.env.SMTP_FROM || 'noreply@example.com',
     to: process.env.ALERT_EMAIL_TO,

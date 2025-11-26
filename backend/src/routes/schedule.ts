@@ -164,19 +164,6 @@ router.get('/calendar', async (req, res) => {
   return res.json(items);
 });
 
-router.get('/:id', async (req, res) => {
-  const user = req.user;
-  if (!user) return res.status(401).json({ error: 'Unauthorized' });
-  const { data, error } = await supabaseService
-    .from('schedules')
-    .select('*')
-    .eq('id', req.params.id)
-    .eq('user_id', user.id)
-    .maybeSingle();
-  if (error || !data) return res.status(404).json({ error: 'Not found' });
-  return res.json(data as ScheduleRecord);
-});
-
 router.post('/:id/cancel', async (req, res) => {
   const user = req.user;
   if (!user) return res.status(401).json({ error: 'Unauthorized' });
