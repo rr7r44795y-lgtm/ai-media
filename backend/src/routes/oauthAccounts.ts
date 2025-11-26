@@ -10,6 +10,7 @@ router.get('/', async (req, res) => {
     .from('social_accounts')
     .select('id, platform, external_account_id, expires_at, created_at, disabled')
     .eq('user_id', user.id)
+    .eq('disabled', false)
     .order('created_at', { ascending: false });
   if (error) return res.status(500).json({ error: 'Unable to load accounts' });
   return res.json(data || []);

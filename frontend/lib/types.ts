@@ -2,6 +2,14 @@ export type Json = string | number | boolean | null | { [key: string]: Json } | 
 
 export type SocialPlatform = 'instagram_business' | 'facebook_page' | 'linkedin' | 'youtube_draft';
 
+export interface SocialAccount {
+  id: string;
+  platform: SocialPlatform;
+  external_account_id: string;
+  expires_at: string;
+  created_at: string;
+}
+
 export type Database = {
   public: {
     Tables: {

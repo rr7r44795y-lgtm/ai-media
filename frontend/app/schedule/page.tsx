@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { getClient } from '../../lib/supabaseClient';
+import { listSocialAccounts } from '../../lib/api';
+import { SocialAccount, SocialPlatform } from '../../lib/types';
 
-type PlatformKey = 'instagram_business' | 'facebook_page' | 'linkedin' | 'youtube_draft';
+type PlatformKey = SocialPlatform;
 
 interface PlatformText {
   instagram_business: string;
@@ -30,6 +32,7 @@ interface ContentRow {
 export default function SchedulePage() {
   const supabase = getClient();
   const [session, setSession] = useState<Session | null>(null);
+  const [accounts, setAccounts] = useState<SocialAccount[]>([]);
   const [contents, setContents] = useState<ContentRow[]>([]);
   const [selectedContent, setSelectedContent] = useState<string>('');
   const [unifiedText, setUnifiedText] = useState('');
@@ -64,6 +67,13 @@ export default function SchedulePage() {
       .then((data: ContentRow[]) => setContents(data || []));
   }, [token]);
 
+  useEffect(() => {
+    if (!token) return;
+    listSocialAccounts(token)
+      .then((data) => setAccounts(data))
+      .catch(() => setAccounts([]));
+  }, [token]);
+
   const generateFormats = async () => {
     if (!token) return;
     const res = await fetch('/api/format/generate', {
@@ -86,6 +96,20 @@ export default function SchedulePage() {
   const togglePlatform = (id: PlatformKey) => {
     setSelectedPlatforms((prev) => (prev.includes(id) ? prev.filter((p) => p !== id) : [...prev, id]));
   };
+
+  const connectedPlatforms = useMemo(() => new Set(accounts.map((a) => a.platform)), [accounts]);
+
+  useEffect(() => {
+    if (connectedPlatforms.size === 0) {
+      setSelectedPlatforms([]);
+      return;
+    }
+    setSelectedPlatforms((prev) => {
+      const filtered = prev.filter((p) => connectedPlatforms.has(p));
+      if (filtered.length > 0) return filtered;
+      return Array.from(connectedPlatforms);
+    });
+  }, [connectedPlatforms]);
 
   const submit = async () => {
     if (!token || !selectedContent) return;
@@ -139,61 +163,73 @@ export default function SchedulePage() {
           </button>
         </div>
         <div className="grid grid-cols-2 gap-4">
-          {platforms.map((p) => (
-            <div key={p.id} className="border rounded p-3 space-y-2">
-              <div className="flex items-center justify-between">
-                <div>
-                  <label className="font-semibold flex items-center gap-2">
+          {platforms.map((p) => {
+            const isConnected = connectedPlatforms.has(p.id);
+            return (
+              <div key={p.id} className="border rounded p-3 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <label className="font-semibold flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={selectedPlatforms.includes(p.id)}
+                        onChange={() => togglePlatform(p.id)}
+                        disabled={!isConnected}
+                      />
+                      {p.label}
+                    </label>
+                    <p className="text-xs text-slate-500">Suggested: {suggestions[p.id]}</p>
+                    {!isConnected && <p className="text-xs text-amber-600">Connect this platform first</p>}
+                  </div>
+                  <button
+                    className="text-xs underline disabled:text-slate-400"
+                    onClick={() => setScheduledTimes((prev) => ({ ...prev, [p.id]: suggestions[p.id] }))}
+                    disabled={!isConnected}
+                  >
+                    Use suggestion
+                  </button>
+                </div>
+                {p.id === 'youtube_draft' ? (
+                  <div className="space-y-2">
                     <input
-                      type="checkbox"
-                      checked={selectedPlatforms.includes(p.id)}
-                      onChange={() => togglePlatform(p.id)}
+                      className="border rounded px-2 py-1 w-full disabled:bg-slate-100"
+                      placeholder="Title"
+                      value={platformTexts.youtube_draft.title}
+                      onChange={(e) =>
+                        setPlatformTexts((prev) => ({ ...prev, youtube_draft: { ...prev.youtube_draft, title: e.target.value } }))
+                      }
+                      disabled={!isConnected}
                     />
-                    {p.label}
-                  </label>
-                  <p className="text-xs text-slate-500">Suggested: {suggestions[p.id]}</p>
-                </div>
-                <button
-                  className="text-xs underline"
-                  onClick={() => setScheduledTimes((prev) => ({ ...prev, [p.id]: suggestions[p.id] }))}
-                >
-                  Use suggestion
-                </button>
-              </div>
-              {p.id === 'youtube_draft' ? (
-                <div className="space-y-2">
-                  <input
-                    className="border rounded px-2 py-1 w-full"
-                    placeholder="Title"
-                    value={platformTexts.youtube_draft.title}
-                    onChange={(e) => setPlatformTexts((prev) => ({ ...prev, youtube_draft: { ...prev.youtube_draft, title: e.target.value } }))}
-                  />
+                    <textarea
+                      className="border rounded px-2 py-1 w-full disabled:bg-slate-100"
+                      rows={3}
+                      placeholder="Description"
+                      value={platformTexts.youtube_draft.description}
+                      onChange={(e) =>
+                        setPlatformTexts((prev) => ({ ...prev, youtube_draft: { ...prev.youtube_draft, description: e.target.value } }))
+                      }
+                      disabled={!isConnected}
+                    />
+                  </div>
+                ) : (
                   <textarea
-                    className="border rounded px-2 py-1 w-full"
+                    className="border rounded px-2 py-1 w-full disabled:bg-slate-100"
                     rows={3}
-                    placeholder="Description"
-                    value={platformTexts.youtube_draft.description}
-                    onChange={(e) =>
-                      setPlatformTexts((prev) => ({ ...prev, youtube_draft: { ...prev.youtube_draft, description: e.target.value } }))
-                    }
+                    value={platformTexts[p.id] as string}
+                    onChange={(e) => setPlatformTexts((prev) => ({ ...prev, [p.id]: e.target.value }))}
+                    disabled={!isConnected}
                   />
-                </div>
-              ) : (
-                <textarea
-                  className="border rounded px-2 py-1 w-full"
-                  rows={3}
-                  value={platformTexts[p.id] as string}
-                  onChange={(e) => setPlatformTexts((prev) => ({ ...prev, [p.id]: e.target.value }))}
+                )}
+                <input
+                  type="datetime-local"
+                  className="border rounded px-2 py-1 w-full disabled:bg-slate-100"
+                  value={scheduledTimes[p.id] || ''}
+                  onChange={(e) => setScheduledTimes((prev) => ({ ...prev, [p.id]: e.target.value }))}
+                  disabled={!isConnected}
                 />
-              )}
-              <input
-                type="datetime-local"
-                className="border rounded px-2 py-1 w-full"
-                value={scheduledTimes[p.id] || ''}
-                onChange={(e) => setScheduledTimes((prev) => ({ ...prev, [p.id]: e.target.value }))}
-              />
-            </div>
-          ))}
+              </div>
+            );
+          })}
         </div>
         <button className="bg-emerald-600 text-white px-4 py-2 rounded" onClick={submit}>
           Confirm Schedule
