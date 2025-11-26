@@ -65,3 +65,9 @@ export interface FeedbackPayload {
   message: string;
   metadata?: Record<string, unknown>;
 }
+
+export interface InstagramPublishResult {
+  container_id: string;
+  media_id: string;
+  permalink: string;
+}
