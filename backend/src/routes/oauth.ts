@@ -10,43 +10,41 @@ router.get('/:platform/start', authMiddleware, async (req, res) => {
   const user = req.user;
   if (!user) return res.status(401).json({ error: 'Unauthorized' });
   const platform = req.params.platform as Platform;
+
   try {
     const stateRow = await createOAuthState(user.id, req.query.redirect as string | undefined);
     const url = buildAuthorizeUrl(platform, stateRow.state);
-    res
-      .cookie('oauth_user', user.id, {
-        httpOnly: true,
-        sameSite: 'lax',
-        maxAge: 5 * 60 * 1000,
-      })
-      .json({ url, state: stateRow.state });
+    res.redirect(url);
   } catch (e) {
     res.status(400).json({ error: (e as Error).message });
   }
 });
 
-router.post('/:platform/callback', async (req, res) => {
+router.get('/:platform/callback', async (req, res) => {
   const platform = req.params.platform as Platform;
-  const { code, state } = req.body as { code: string; state: string };
-  const stateRow = await consumeOAuthState(state);
-  const userId = (req.cookies?.oauth_user as string | undefined) || stateRow?.user_id;
-  if (!stateRow || !userId) {
-    return res.status(400).json({ error: 'Invalid state' });
+  const code = req.query.code as string | undefined;
+  const state = req.query.state as string | undefined;
+  const appBase = process.env.APP_BASE_URL || '/';
+
+  const stateRow = state ? await consumeOAuthState(state) : null;
+  const redirectAfter = stateRow?.redirect_after || `${appBase}/integrations`;
+  const redirectUrl = new URL(redirectAfter, redirectAfter.startsWith('http') ? undefined : appBase);
+
+  if (!stateRow || !state || !code) {
+    redirectUrl.searchParams.set('oauth', 'error');
+    redirectUrl.searchParams.set('reason', 'invalid_state');
+    return res.redirect(redirectUrl.toString());
   }
 
   try {
     const tokens = await exchangeCode(platform, code);
-    await saveTokens({
-      userId,
-      platform,
-      accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
-      externalId: tokens.externalId,
-      expiresAt: tokens.expiresAt,
-    });
-    res.clearCookie('oauth_user').json({ status: 'connected', redirect_after: stateRow.redirect_after });
+    await saveTokens(stateRow.user_id, tokens);
+    redirectUrl.searchParams.set('oauth', 'success');
+    res.redirect(redirectUrl.toString());
   } catch (e) {
-    res.status(400).json({ error: (e as Error).message });
+    redirectUrl.searchParams.set('oauth', 'error');
+    redirectUrl.searchParams.set('reason', (e as Error).message);
+    res.redirect(redirectUrl.toString());
   }
 });
 
