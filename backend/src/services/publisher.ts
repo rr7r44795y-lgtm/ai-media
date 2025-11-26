@@ -1,7 +1,7 @@
 import { supabaseService } from '../utils/supabaseClient.js';
 import { decryptToken } from '../utils/encryption.js';
 import { publishInstagramBusiness } from '../platforms/instagram.js';
-import { publishFacebook } from '../platforms/facebook.js';
+import { publishFacebookPage } from '../platforms/facebook.js';
 import { publishLinkedIn } from '../platforms/linkedin.js';
 import { publishYouTubeDraft } from '../platforms/youtube.js';
 import { SocialAccount } from '../platforms/types.js';
@@ -103,12 +103,18 @@ export async function publishPost(platform: PublishPlatform, payload: PublishPay
       return { success: true, url: ig.permalink };
     }
     case 'facebook_page': {
-      const fb = await publishFacebook({
+      if (socialAccount.platform !== 'facebook_page') {
+        throw new PublisherError('invalid_platform');
+      }
+
+      const fb = await publishFacebookPage({
         platform_text: payload.platform_text as string,
         media_urls: payload.media_urls,
         socialAccount,
+        accessToken,
       });
-      return { success: true, url: fallbackUrl(fb.id) };
+
+      return { success: true, url: fb.permalink_url };
     }
     case 'linkedin': {
       const li = await publishLinkedIn({
