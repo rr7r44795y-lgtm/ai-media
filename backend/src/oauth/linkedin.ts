@@ -5,7 +5,7 @@ export function buildLinkedInAuthUrl(state: string, redirect: string, clientId: 
     response_type: 'code',
     client_id: clientId,
     redirect_uri: redirect,
-    scope: 'w_member_social,r_liteprofile',
+    scope: 'w_member_social r_liteprofile',
     state,
   });
   return `https://www.linkedin.com/oauth/v2/authorization?${params.toString()}`;

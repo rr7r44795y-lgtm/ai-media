@@ -31,7 +31,7 @@ async function checkRate(platform: PublishPlatform): Promise<boolean> {
 }
 
 export const publishToPlatform = async (
-  schedule: ScheduleRecord
+  schedule: ScheduleRecord & { social_account_id?: string }
 ): Promise<WorkerPublishResult> => {
   const platform = schedule.platform as PublishPlatform;
   const userId = schedule.user_id;
@@ -42,9 +42,16 @@ export const publishToPlatform = async (
   }
 
   const platformCandidates: PublishPlatform[] = [platform];
+  const socialAccountId = schedule.social_account_id;
+  if (!socialAccountId) {
+    const signedLinks = await createSignedContentLinks(schedule.content_id);
+    return { success: false, error: 'Account not connected', fatal: true, fallback_links: signedLinks };
+  }
+
   const { data: account, error } = await supabaseService
     .from('social_accounts')
     .select('*')
+    .eq('id', socialAccountId)
     .eq('user_id', userId)
     .in('platform', platformCandidates)
     .eq('disabled', false)
@@ -56,7 +63,7 @@ export const publishToPlatform = async (
   }
 
   const platformKey: PublishPlatform = platform;
-  const refreshed = await refreshIfExpired(platform, userId);
+  const refreshed = await refreshIfExpired(account.id);
   if (refreshed.error) {
     await supabaseService.from('social_accounts').update({ disabled: true }).eq('id', account.id);
     const signedLinks = await createSignedContentLinks(schedule.content_id);
