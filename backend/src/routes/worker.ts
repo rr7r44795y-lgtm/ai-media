@@ -1,18 +1,25 @@
 import { Router } from 'express';
+import { validate as validateUuid } from 'uuid';
 import { supabaseService } from '../utils/supabaseClient.js';
 import { markFailure, markProcessing, markSuccess } from '../services/scheduleService.js';
 import { publishToPlatform } from '../services/platformPublisher.js';
-import { ScheduleRecord } from '../types.js';
+import { ScheduleRecord, SocialPlatform, WorkerRequest } from '../types.js';
 import { createSignedContentLinks } from '../utils/storage.js';
 
 const router = Router();
 
-router.post('/publish', async (req, res) => {
-  const id = req.query.id as string;
-  if (!id) return res.status(400).json({ error: 'id required' });
+const allowedPlatforms: SocialPlatform[] = ['instagram_business', 'facebook_page', 'linkedin', 'youtube_draft'];
 
-  const processing = await markProcessing(id);
-  if (!processing) return res.status(409).json({ error: 'Already processed' });
+router.post('/publish', async (req, res) => {
+  const secret = req.header('x-worker-secret');
+  if (!secret || secret !== process.env.WORKER_SECRET) {
+    return res.status(401).json({ error: 'unauthorized' });
+  }
+
+  const { id } = req.query as WorkerRequest;
+  if (!id || !validateUuid(id)) {
+    return res.status(400).json({ error: 'invalid id' });
+  }
 
   const { data: scheduleData, error } = await supabaseService
     .from('schedules')
@@ -21,13 +28,40 @@ router.post('/publish', async (req, res) => {
     .maybeSingle();
 
   if (error || !scheduleData) {
-    return res.status(404).json({ error: 'Schedule not found' });
+    return res.status(404).json({ error: 'not_found' });
   }
-  const schedule = scheduleData as ScheduleRecord;
-  if (schedule.status === 'cancelled') return res.status(200).json({ status: 'cancelled' });
+
+  const schedule = scheduleData as ScheduleRecord & { social_account_id?: string };
+  if (schedule.status === 'cancelled') return res.status(409).json({ error: 'cancelled' });
+  if (schedule.status === 'success') return res.status(409).json({ error: 'already_published' });
+  if (!allowedPlatforms.includes(schedule.platform as SocialPlatform)) {
+    return res.status(400).json({ error: 'invalid_platform' });
+  }
+
+  const socialAccountId = schedule.social_account_id;
+  if (!socialAccountId) {
+    return res.status(404).json({ error: 'not_found' });
+  }
+
+  const { data: socialAccount, error: socialError } = await supabaseService
+    .from('social_accounts')
+    .select('id, user_id')
+    .eq('id', socialAccountId)
+    .maybeSingle();
+
+  if (socialError || !socialAccount) {
+    return res.status(404).json({ error: 'not_found' });
+  }
+
+  if (socialAccount.user_id !== schedule.user_id) {
+    return res.status(403).json({ error: 'forbidden' });
+  }
+
+  const processing = await markProcessing(id);
+  if (!processing) return res.status(409).json({ error: 'conflict' });
 
   try {
-    const result = await publishToPlatform(schedule);
+    const result = await publishToPlatform(processing);
     if (result.success && result.url) {
       await markSuccess(schedule.id, result.url);
       return res.json({ status: 'success', url: result.url });
