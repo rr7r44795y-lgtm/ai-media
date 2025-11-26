@@ -40,14 +40,7 @@ const runScan = async (): Promise<void> => {
   if (error || !data) return;
   await reclaimStuck();
   for (const task of data) {
-    const { data: locked } = await supabaseService
-      .from('schedules')
-      .update({ status: 'processing', processing_started_at: new Date().toISOString() })
-      .eq('id', task.id)
-      .eq('status', 'pending')
-      .select('id')
-      .maybeSingle();
-    if (!locked) continue;
+    if (task.status !== 'pending') continue;
     await enqueueWorker(task.id);
   }
   await logHeartbeat();
