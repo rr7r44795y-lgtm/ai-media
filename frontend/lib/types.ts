@@ -41,6 +41,41 @@ export type Database = {
         Insert: Partial<Row>;
         Update: Partial<Row>;
       };
+      schedules: {
+        Row: {
+          id: string;
+          user_id: string;
+          platform: string;
+          content_id: string;
+          platform_text: Record<string, unknown> | string;
+          scheduled_time: string;
+          status: 'pending' | 'processing' | 'success' | 'failed' | 'cancelled';
+          tries: number;
+          last_error: string | null;
+          published_url: string | null;
+          next_retry_at: string | null;
+          processing_started_at: string | null;
+          fallback_sent: boolean;
+          fallback_sent_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Partial<Row>;
+        Update: Partial<Row>;
+      };
+      feedback: {
+        Row: {
+          id: string;
+          user_id: string;
+          type: string;
+          message: string;
+          metadata: Record<string, unknown> | null;
+          created_at: string;
+          status: string;
+        };
+        Insert: Partial<Row>;
+        Update: Partial<Row>;
+      };
     };
   };
 };

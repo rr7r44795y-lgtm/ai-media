@@ -6,7 +6,8 @@ const router = Router();
 const BUCKET = process.env.SUPABASE_STORAGE_BUCKET || 'content';
 
 router.post('/signed-url', async (req, res) => {
-  const user = (req as any).user;
+  const user = req.user;
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
   const { type, mimeType } = req.body as { type: 'image' | 'video' | 'text'; mimeType: string };
 
   if (!['image', 'video', 'text'].includes(type)) {
@@ -27,7 +28,8 @@ router.post('/signed-url', async (req, res) => {
 });
 
 router.post('/complete', async (req, res) => {
-  const user = (req as any).user;
+  const user = req.user;
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
   const { path, type, text } = req.body as { path: string; type: 'image' | 'video' | 'text'; text?: string };
 
   if (!path?.startsWith(`content/${user.id}`)) {
@@ -50,7 +52,8 @@ router.post('/complete', async (req, res) => {
 });
 
 router.get('/list', async (req, res) => {
-  const user = (req as any).user;
+  const user = req.user;
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
   const { data, error } = await supabaseService
     .from('contents')
     .select('*')
@@ -73,7 +76,10 @@ router.get('/list', async (req, res) => {
         .eq('content_id', item.id)
         .eq('user_id', user.id)
         .is('deleted_at', null);
-      const tags = (tagRows || []).map((row) => ({ id: row.tag_id, name: (row as any).tags?.name }));
+      const tags = (tagRows || []).map((row) => ({
+        id: row.tag_id,
+        name: (row.tags as { name?: string } | null)?.name || '',
+      }));
       return { ...item, signedUrl, tags };
     })
   );
