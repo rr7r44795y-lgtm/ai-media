@@ -26,7 +26,7 @@ router.post('/publish', async (req, res) => {
   if (schedule.status === 'cancelled') return res.status(200).json({ status: 'cancelled' });
 
   try {
-    const result = await publishToPlatform(schedule.id, schedule.platform, schedule.user_id, schedule.platform_text);
+    const result = await publishToPlatform(schedule);
     if (result.success && result.url) {
       await markSuccess(schedule.id, result.url);
       return res.json({ status: 'success', url: result.url });

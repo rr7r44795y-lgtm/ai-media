@@ -1,6 +1,6 @@
 import { stripEmojis } from '../utils/text.js';
 
-export type PlatformKey = 'ig' | 'facebook' | 'linkedin' | 'youtube';
+export type PlatformKey = 'ig' | 'facebook' | 'linkedin' | 'youtube_draft';
 
 const config = {
   instagram: {
@@ -15,7 +15,7 @@ const config = {
     maxLength: 3000,
     hashtags: ['#industry', '#insights', '#growth', '#strategy', '#teamwork'],
   },
-  youtube: {
+  youtube_draft: {
     titleMax: 100,
     descriptionMax: 5000,
   },
@@ -81,8 +81,8 @@ function formatYouTube(text: string): { title: string; description: string } {
   const title = rawTitle.slice(0, 80).trim();
   const descriptionBody = sanitized;
   let description = `Overview\n${descriptionBody}\n\nKey Points\n- ${descriptionBody.split(/\n+/).join('\n- ')}\n\nLinks & Credits\n`;
-  if (description.length > config.youtube.descriptionMax) {
-    description = description.slice(0, config.youtube.descriptionMax - 3) + '...';
+  if (description.length > config.youtube_draft.descriptionMax) {
+    description = description.slice(0, config.youtube_draft.descriptionMax - 3) + '...';
   }
   return { title, description };
 }
@@ -95,7 +95,7 @@ export function formatAdapter(platform: PlatformKey, text: string) {
       return formatFacebook(text);
     case 'linkedin':
       return formatLinkedIn(text);
-    case 'youtube':
+    case 'youtube_draft':
       return formatYouTube(text);
     default:
       throw new Error('Unsupported platform');

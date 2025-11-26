@@ -1,52 +1,85 @@
 import { supabaseService } from '../utils/supabaseClient.js';
 import { decryptToken } from '../utils/encryption.js';
-import { WorkerPublishResult } from '../types.js';
+import { refreshIfExpired } from '../utils/refreshToken.js';
+import { WorkerPublishResult, ScheduleRecord } from '../types.js';
+import { publishPost } from './publisher.js';
+import { Platform } from './oauth.js';
 
 const platformRateLimits: Record<string, number> = {
   ig: 100,
   facebook: 250,
   linkedin: 250,
   youtube_draft: 200,
+  instagram_business: 100,
+  facebook_page: 250,
 };
 
-const recentPublishKey = (platform: string) => `rate:${platform}`;
-const inMemoryRate: Record<string, number> = {};
-
-const incrementRate = (platform: string): boolean => {
-  const key = recentPublishKey(platform);
-  const count = (inMemoryRate[key] ?? 0) + 1;
-  inMemoryRate[key] = count;
+async function checkRate(platform: string): Promise<boolean> {
   const limit = platformRateLimits[platform] ?? 200;
-  return count <= limit;
-};
+  const now = new Date();
+  const { data } = await supabaseService.from('publisher_rate_limits').select('*').eq('platform', platform).maybeSingle();
+  const windowStart = data?.window_start ? new Date(data.window_start) : null;
+  const withinWindow = windowStart && now.getTime() - windowStart.getTime() < 60 * 1000;
+  const count = withinWindow ? data?.count ?? 0 : 0;
+  if (count >= limit) return false;
+  const newCount = count + 1;
+  const upsertData = {
+    platform,
+    window_start: withinWindow ? windowStart?.toISOString() : now.toISOString(),
+    count: newCount,
+  };
+  await supabaseService.from('publisher_rate_limits').upsert(upsertData, { onConflict: 'platform' });
+  return true;
+}
 
 export const publishToPlatform = async (
-  scheduleId: string,
-  platform: string,
-  userId: string,
-  payload: unknown
+  schedule: ScheduleRecord
 ): Promise<WorkerPublishResult> => {
-  const withinLimit = incrementRate(platform);
-  if (!withinLimit) {
+  const platform = schedule.platform;
+  const userId = schedule.user_id;
+  const payload = schedule.platform_text;
+  const allowed = await checkRate(platform);
+  if (!allowed) {
     return { success: false, error: 'Rate limit exceeded' };
   }
 
   const { data: account, error } = await supabaseService
     .from('social_accounts')
-    .select('access_token_encrypted, refresh_token_encrypted, expires_at, scopes, id')
+    .select('*')
     .eq('user_id', userId)
     .eq('platform', platform)
+    .eq('disabled', false)
     .maybeSingle();
 
   if (error || !account) {
     return { success: false, error: 'Account not connected' };
   }
 
-  const accessToken = decryptToken(account.access_token_encrypted as string);
+  const platformKey: Platform = platform as Platform;
+  const refreshed = await refreshIfExpired(platformKey, userId);
+  if (refreshed.error) {
+    await supabaseService.from('social_accounts').update({ disabled: true }).eq('id', account.id);
+    return { success: false, error: 'Token refresh failed' };
+  }
+
+  const accessToken = refreshed.accessToken || decryptToken(account.access_token_encrypted as string);
   void accessToken;
 
-  // Simulated platform publish for now
-  const targetUrl = `https://social.example.com/${platform}/posts/${scheduleId}`;
-  void payload;
-  return { success: true, url: targetUrl };
+  try {
+    const result = await publishPost(
+      platformKey,
+      {
+        content_id: schedule.content_id,
+        text: typeof payload === 'string' ? payload : '',
+        platform_text: payload as string,
+        media_urls: [],
+        scheduled_time: schedule.scheduled_time,
+        social_account_id: account.id,
+      },
+      userId
+    );
+    return result;
+  } catch (e) {
+    return { success: false, error: e instanceof Error ? e.message : 'Publish failed' };
+  }
 };

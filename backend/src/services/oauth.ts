@@ -6,11 +6,11 @@ import { buildYouTubeAuthUrl, exchangeYouTubeCode } from '../oauth/youtube.js';
 import { supabaseService } from '../utils/supabaseClient.js';
 import { encryptToken } from '../utils/encryption.js';
 
-export type Platform = 'instagram_business' | 'facebook_page' | 'linkedin' | 'youtube';
+export type Platform = 'instagram_business' | 'facebook_page' | 'linkedin' | 'youtube_draft';
 
 export function buildAuthorizeUrl(platform: Platform, state: string): string {
   const base = process.env.BACKEND_BASE_URL || '';
-  const redirect = `${base}/oauth/${platform}/callback`;
+  const redirect = `${base}/api/oauth/${platform}/callback`;
   const clientId = process.env[`OAUTH_${platform.toUpperCase()}_CLIENT_ID`] || '';
   switch (platform) {
     case 'linkedin':
@@ -19,7 +19,7 @@ export function buildAuthorizeUrl(platform: Platform, state: string): string {
       return buildFacebookAuthUrl(state, redirect, clientId);
     case 'instagram_business':
       return buildInstagramAuthUrl(state, redirect, clientId);
-    case 'youtube':
+    case 'youtube_draft':
       return buildYouTubeAuthUrl(state, redirect, clientId);
     default:
       throw new Error('Unsupported platform');
@@ -63,7 +63,7 @@ export async function exchangeCode(platform: Platform, code: string) {
       return exchangeFacebookCode(code);
     case 'instagram_business':
       return exchangeInstagramCode(code);
-    case 'youtube':
+    case 'youtube_draft':
       return exchangeYouTubeCode(code);
     default:
       throw new Error('Unsupported platform');
