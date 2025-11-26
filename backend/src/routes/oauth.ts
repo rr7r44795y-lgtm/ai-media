@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { v4 as uuid } from 'uuid';
-import { buildAuthorizeUrl, saveTokens, Platform } from '../services/oauth.js';
+import { buildAuthorizeUrl, saveTokens, Platform, exchangeCode } from '../services/oauth.js';
 import { refreshIfExpired } from '../utils/refreshToken.js';
 
 const router = Router();
@@ -24,23 +24,20 @@ router.post('/:platform/callback', async (req, res) => {
     return res.status(400).json({ error: 'Invalid state' });
   }
 
-  // Placeholder token exchange
-  const tokens = {
-    accessToken: `${platform}-access-token`,
-    refreshToken: `${platform}-refresh-token`,
-    expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(),
-    externalId: `${platform}-account`,
-  };
-
-  await saveTokens({
-    userId: user.id,
-    platform,
-    accessToken: tokens.accessToken,
-    refreshToken: tokens.refreshToken,
-    externalId: tokens.externalId,
-    expiresAt: tokens.expiresAt,
-  });
-  res.json({ status: 'connected' });
+  try {
+    const tokens = await exchangeCode(platform, code);
+    await saveTokens({
+      userId: user.id,
+      platform,
+      accessToken: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
+      externalId: tokens.externalId,
+      expiresAt: tokens.expiresAt,
+    });
+    res.json({ status: 'connected' });
+  } catch (e) {
+    res.status(400).json({ error: (e as Error).message });
+  }
 });
 
 router.post('/:platform/refresh', async (req, res) => {
