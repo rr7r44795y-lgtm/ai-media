@@ -7,7 +7,8 @@ const router = Router();
 const stateStore = new Map<string, string>();
 
 router.get('/:platform/start', (req, res) => {
-  const user = (req as any).user;
+  const user = req.user;
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
   const platform = req.params.platform as Platform;
   const state = uuid();
   stateStore.set(state, user.id);
@@ -16,7 +17,8 @@ router.get('/:platform/start', (req, res) => {
 });
 
 router.post('/:platform/callback', async (req, res) => {
-  const user = (req as any).user;
+  const user = req.user;
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
   const platform = req.params.platform as Platform;
   const { code, state } = req.body as { code: string; state: string };
   const stored = stateStore.get(state);
@@ -41,7 +43,8 @@ router.post('/:platform/callback', async (req, res) => {
 });
 
 router.post('/:platform/refresh', async (req, res) => {
-  const user = (req as any).user;
+  const user = req.user;
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
   const platform = req.params.platform as Platform;
   const refreshed = await refreshIfExpired(platform, user.id);
   if (refreshed.error) {

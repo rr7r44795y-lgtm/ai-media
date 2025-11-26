@@ -15,10 +15,35 @@ const plans = {
 };
 
 router.post('/create-session', async (req, res) => {
-  const user = (req as any).user;
+  const user = req.user;
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
   const { plan } = req.body as { plan: keyof typeof plans };
   const planConfig = plans[plan];
   if (!planConfig) return res.status(400).json({ error: 'Invalid plan' });
+
+  if (plan === 'intro') {
+    const { data: existing } = await supabaseService
+      .from('billing')
+      .select('plan_type')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (existing) {
+      const standardPrice = plans.starter.priceId;
+      if (!standardPrice) return res.status(400).json({ error: 'Standard plan unavailable' });
+      const session = await stripe.checkout.sessions.create({
+        customer_email: req.body.email,
+        mode: 'subscription',
+        line_items: [{ price: standardPrice, quantity: 1 }],
+        success_url: `${process.env.APP_BASE_URL}/billing/success`,
+        cancel_url: `${process.env.APP_BASE_URL}/billing/cancel`,
+        metadata: { user_id: user.id, plan: 'starter' },
+      });
+      await supabaseService
+        .from('billing_pending')
+        .insert({ user_id: user.id, checkout_session_id: session.id, plan_type: 'starter' });
+      return res.json({ url: session.url });
+    }
+  }
 
   if (!planConfig.priceId) {
     await supabaseService.from('billing').upsert({ user_id: user.id, plan_type: 'free', quota_per_month: 20, status: 'active' });
@@ -50,10 +75,12 @@ router.post('/webhook', async (req, res) => {
   switch (event.type) {
     case 'checkout.session.completed': {
       const session = event.data.object as Stripe.Checkout.Session;
+      const alreadyPromo = session.metadata?.plan === 'intro';
+      const finalPlan = alreadyPromo && session.metadata?.user_id ? 'starter' : session.metadata?.plan;
       await supabaseService.from('billing').upsert({
         user_id: session.metadata?.user_id,
-        plan_type: session.metadata?.plan,
-        quota_per_month: plans[session.metadata?.plan as keyof typeof plans]?.quota || 20,
+        plan_type: finalPlan,
+        quota_per_month: plans[finalPlan as keyof typeof plans]?.quota || 20,
         stripe_customer_id: session.customer as string,
         stripe_subscription_id: session.subscription as string,
         status: 'active',
@@ -83,7 +110,8 @@ router.post('/webhook', async (req, res) => {
 });
 
 router.get('/quota', async (req, res) => {
-  const user = (req as any).user;
+  const user = req.user;
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
   const { data } = await supabaseService.from('billing').select('*').eq('user_id', user.id).maybeSingle();
   res.json(data || { plan_type: 'free', quota_per_month: 20, quota_used: 0 });
 });

@@ -6,7 +6,8 @@ import { isSafeTagName } from '../utils/text.js';
 const router = Router();
 
 router.get('/', async (req, res) => {
-  const user = (req as any).user;
+  const user = req.user;
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
   const { data, error } = await supabaseService
     .from('tags')
     .select('id,name,created_at,deleted_at,usage_count')
@@ -18,7 +19,8 @@ router.get('/', async (req, res) => {
 });
 
 router.post('/assign', async (req, res) => {
-  const user = (req as any).user;
+  const user = req.user;
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
   const { content_id, name } = req.body as { content_id: string; name: string };
   if (!name || name.length > 30 || !isSafeTagName(name)) {
     return res.status(400).json({ error: 'Invalid tag name' });
@@ -62,7 +64,8 @@ router.post('/assign', async (req, res) => {
 });
 
 router.post('/remove', async (req, res) => {
-  const user = (req as any).user;
+  const user = req.user;
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
   const { tag_id } = req.body as { tag_id: string };
   const { error } = await supabaseService
     .from('tags')
@@ -74,7 +77,8 @@ router.post('/remove', async (req, res) => {
 });
 
 router.get('/by-content/:contentId', async (req, res) => {
-  const user = (req as any).user;
+  const user = req.user;
+  if (!user) return res.status(401).json({ error: 'Unauthorized' });
   const { contentId } = req.params;
   const { data, error } = await supabaseService
     .from('content_tags')
@@ -83,7 +87,12 @@ router.get('/by-content/:contentId', async (req, res) => {
     .eq('content_id', contentId)
     .order('created_at', { ascending: true });
   if (error) return res.status(500).json({ error: 'Unable to load tags' });
-  res.json(data?.map((d) => ({ id: d.tag_id, name: (d as any).tags.name })) || []);
+  res.json(
+    data?.map((d) => ({
+      id: d.tag_id,
+      name: (d.tags as { name?: string } | null)?.name || '',
+    })) || []
+  );
 });
 
 export default router;

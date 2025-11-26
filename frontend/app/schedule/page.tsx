@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { Session } from '@supabase/supabase-js';
 import { getClient } from '../../lib/supabaseClient';
 
 type PlatformKey = 'ig' | 'facebook' | 'linkedin' | 'youtube_draft';
@@ -19,10 +20,17 @@ const platforms: { id: PlatformKey; label: string }[] = [
   { id: 'youtube_draft', label: 'YouTube Draft' },
 ];
 
+interface ContentRow {
+  id: string;
+  type: string;
+  text: string | null;
+  url: string;
+}
+
 export default function SchedulePage() {
   const supabase = getClient();
-  const [session, setSession] = useState<any>(null);
-  const [contents, setContents] = useState<any[]>([]);
+  const [session, setSession] = useState<Session | null>(null);
+  const [contents, setContents] = useState<ContentRow[]>([]);
   const [selectedContent, setSelectedContent] = useState<string>('');
   const [unifiedText, setUnifiedText] = useState('');
   const [platformTexts, setPlatformTexts] = useState<PlatformText>({
@@ -50,7 +58,7 @@ export default function SchedulePage() {
     if (!token) return;
     fetch('/api/content/list', { headers: { Authorization: `Bearer ${token}` } })
       .then((res) => res.json())
-      .then((data) => setContents(data || []));
+      .then((data: ContentRow[]) => setContents(data || []));
   }, [token]);
 
   const generateFormats = async () => {
@@ -170,7 +178,7 @@ export default function SchedulePage() {
                 <textarea
                   className="border rounded px-2 py-1 w-full"
                   rows={3}
-                  value={(platformTexts as any)[p.id] || ''}
+                  value={platformTexts[p.id] as string}
                   onChange={(e) => setPlatformTexts((prev) => ({ ...prev, [p.id]: e.target.value }))}
                 />
               )}
