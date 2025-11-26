@@ -117,12 +117,17 @@ export async function publishPost(platform: PublishPlatform, payload: PublishPay
       return { success: true, url: fb.permalink_url };
     }
     case 'linkedin': {
+      if (socialAccount.platform !== 'linkedin') {
+        throw new PublisherError('invalid_platform');
+      }
+
       const li = await publishLinkedIn({
         platform_text: payload.platform_text as string,
         media_urls: payload.media_urls,
         socialAccount,
+        accessToken,
       });
-      return { success: true, url: fallbackUrl(li.id) };
+      return { success: true, url: li.published_url };
     }
     case 'youtube_draft': {
       const yt = await publishYouTubeDraft({

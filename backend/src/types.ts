@@ -77,3 +77,9 @@ export interface FacebookPublishResult {
   post_id: string;
   permalink_url: string;
 }
+
+export interface LinkedInPublishResult {
+  asset?: string;
+  post_urn: string;
+  published_url: string;
+}
