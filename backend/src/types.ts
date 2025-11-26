@@ -83,3 +83,8 @@ export interface LinkedInPublishResult {
   post_urn: string;
   published_url: string;
 }
+
+export interface YouTubePublishResult {
+  videoId: string;
+  published_url: string;
+}

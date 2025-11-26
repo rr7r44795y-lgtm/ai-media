@@ -91,7 +91,6 @@ export async function publishPost(platform: PublishPlatform, payload: PublishPay
     throw new PublisherError('missing_access_token');
   }
 
-  const fallbackUrl = (id: string) => `https://social.example.com/${platform}/posts/${id}`;
   switch (platform) {
     case 'instagram_business': {
       const ig = await publishInstagramBusiness({
@@ -134,8 +133,9 @@ export async function publishPost(platform: PublishPlatform, payload: PublishPay
         platform_text: payload.platform_text as { title: string; description: string },
         media_urls: payload.media_urls,
         socialAccount,
+        accessToken,
       });
-      return { success: true, url: fallbackUrl(yt.id) };
+      return { success: true, url: yt.published_url };
     }
     default:
       throw new PublisherError('invalid_platform');

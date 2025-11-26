@@ -66,7 +66,6 @@ export const publishToPlatform = async (
     switch (platform) {
       case 'facebook_page':
       case 'instagram_business':
-      case 'youtube_draft':
         result = await publishPost(
           platform,
           {
@@ -87,6 +86,20 @@ export const publishToPlatform = async (
             content_id: schedule.content_id,
             text: typeof payload === 'string' ? payload : '',
             platform_text: payload as string,
+            media_urls: mediaUrls,
+            scheduled_time: schedule.scheduled_time,
+            social_account_id: account.id,
+          },
+          userId
+        );
+        break;
+      case 'youtube_draft':
+        result = await publishPost(
+          platform,
+          {
+            content_id: schedule.content_id,
+            text: typeof payload === 'string' ? payload : '',
+            platform_text: payload as { title: string; description: string },
             media_urls: mediaUrls,
             scheduled_time: schedule.scheduled_time,
             social_account_id: account.id,
