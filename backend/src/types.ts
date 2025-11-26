@@ -71,3 +71,9 @@ export interface InstagramPublishResult {
   media_id: string;
   permalink: string;
 }
+
+export interface FacebookPublishResult {
+  media_id?: string;
+  post_id: string;
+  permalink_url: string;
+}

@@ -62,18 +62,28 @@ export const publishToPlatform = async (
 
   try {
     const mediaUrls = await createSignedContentLinks(schedule.content_id);
-    const result = await publishPost(
-      platform,
-      {
-        content_id: schedule.content_id,
-        text: typeof payload === 'string' ? payload : '',
-        platform_text: payload as string,
-        media_urls: mediaUrls,
-        scheduled_time: schedule.scheduled_time,
-        social_account_id: account.id,
-      },
-      userId
-    );
+    let result: WorkerPublishResult;
+    switch (platform) {
+      case 'facebook_page':
+      case 'instagram_business':
+      case 'linkedin':
+      case 'youtube_draft':
+        result = await publishPost(
+          platform,
+          {
+            content_id: schedule.content_id,
+            text: typeof payload === 'string' ? payload : '',
+            platform_text: payload as string,
+            media_urls: mediaUrls,
+            scheduled_time: schedule.scheduled_time,
+            social_account_id: account.id,
+          },
+          userId
+        );
+        break;
+      default:
+        return { success: false, error: 'Unsupported platform' };
+    }
     return result;
   } catch (e) {
     return { success: false, error: e instanceof Error ? e.message : 'Publish failed' };
