@@ -5,6 +5,7 @@ import { Session } from '@supabase/supabase-js';
 import Link from 'next/link';
 import { getClient } from '../../../lib/supabaseClient';
 import { Database } from '../../../lib/types';
+import { PlatformIcon } from '../../../components/PlatformIcon';
 
 type ScheduleRow = Database['public']['Tables']['schedules']['Row'];
 
@@ -39,8 +40,8 @@ export default function ScheduleListPage() {
       <div className="grid gap-3">
         {schedules.map((s) => (
           <div key={s.id} className="border rounded p-3 flex items-center justify-between">
-            <div>
-              <p className="font-semibold">{s.platform.toUpperCase()}</p>
+            <div className="space-y-1">
+              <PlatformIcon platform={s.platform} />
               <p className="text-sm text-gray-600">{new Date(s.scheduled_time).toLocaleString()}</p>
               <p className="text-xs">Status: {s.status}</p>
             </div>

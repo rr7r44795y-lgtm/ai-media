@@ -4,8 +4,8 @@ const platformMeta: Record<
   string,
   { label: string; color: string; bg: string; glyph: string }
 > = {
-  ig: { label: 'Instagram', color: 'text-pink-600', bg: 'bg-pink-100', glyph: 'IG' },
-  facebook: { label: 'Facebook', color: 'text-blue-600', bg: 'bg-blue-100', glyph: 'FB' },
+  instagram_business: { label: 'Instagram', color: 'text-pink-600', bg: 'bg-pink-100', glyph: 'IG' },
+  facebook_page: { label: 'Facebook', color: 'text-blue-600', bg: 'bg-blue-100', glyph: 'FB' },
   linkedin: { label: 'LinkedIn', color: 'text-sky-700', bg: 'bg-sky-100', glyph: 'LI' },
   youtube_draft: { label: 'YouTube', color: 'text-red-600', bg: 'bg-red-100', glyph: 'YT' },
 };

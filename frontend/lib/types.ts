@@ -1,5 +1,7 @@
 export type Json = string | number | boolean | null | { [key: string]: Json } | Json[];
 
+export type SocialPlatform = 'instagram_business' | 'facebook_page' | 'linkedin' | 'youtube_draft';
+
 export type Database = {
   public: {
     Tables: {
@@ -33,7 +35,7 @@ export type Database = {
         Row: {
           id: string;
           user_id: string;
-          platform: string;
+          platform: SocialPlatform;
           external_account_id: string;
           access_token_encrypted: string;
           refresh_token_encrypted: string;
@@ -43,7 +45,7 @@ export type Database = {
         Insert: Partial<{
           id: string;
           user_id: string;
-          platform: string;
+          platform: SocialPlatform;
           external_account_id: string;
           access_token_encrypted: string;
           refresh_token_encrypted: string;
@@ -53,7 +55,7 @@ export type Database = {
         Update: Partial<{
           id: string;
           user_id: string;
-          platform: string;
+          platform: SocialPlatform;
           external_account_id: string;
           access_token_encrypted: string;
           refresh_token_encrypted: string;
@@ -91,7 +93,7 @@ export type Database = {
         Row: {
           id: string;
           user_id: string;
-          platform: string;
+          platform: SocialPlatform;
           content_id: string;
           platform_text: Record<string, unknown> | string;
           scheduled_time: string;
@@ -109,7 +111,7 @@ export type Database = {
         Insert: Partial<{
           id: string;
           user_id: string;
-          platform: string;
+          platform: SocialPlatform;
           content_id: string;
           platform_text: Record<string, unknown> | string;
           scheduled_time: string;
@@ -127,7 +129,7 @@ export type Database = {
         Update: Partial<{
           id: string;
           user_id: string;
-          platform: string;
+          platform: SocialPlatform;
           content_id: string;
           platform_text: Record<string, unknown> | string;
           scheduled_time: string;
@@ -178,7 +180,7 @@ export type Database = {
 
 export type ScheduleCalendarItem = {
   id: string;
-  platform: string;
+  platform: SocialPlatform;
   scheduled_time: string;
   status: 'pending' | 'processing' | 'success' | 'failed' | 'cancelled';
   platform_text_preview: string;
