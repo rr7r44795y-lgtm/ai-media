@@ -1,6 +1,4 @@
 import { supabaseService } from '../utils/supabaseClient.js';
-import { decryptToken } from '../utils/encryption.js';
-import { refreshIfExpired } from '../utils/refreshToken.js';
 import { WorkerPublishResult, ScheduleRecord } from '../types.js';
 import { publishPost, PublishPlatform } from './publisher.js';
 import { createSignedContentLinks } from '../utils/storage.js';
@@ -62,25 +60,15 @@ export const publishToPlatform = async (
     return { success: false, error: 'Account not connected', fatal: true, fallback_links: signedLinks };
   }
 
-  const platformKey: PublishPlatform = platform;
-  const refreshed = await refreshIfExpired(account.id);
-  if (refreshed.error) {
-    await supabaseService.from('social_accounts').update({ disabled: true }).eq('id', account.id);
-    const signedLinks = await createSignedContentLinks(schedule.content_id);
-    return { success: false, error: 'Token refresh failed', fatal: true, fallback_links: signedLinks };
-  }
-
-  const accessToken = refreshed.accessToken || decryptToken(account.access_token_encrypted as string);
-  void accessToken;
-
   try {
+    const mediaUrls = await createSignedContentLinks(schedule.content_id);
     const result = await publishPost(
-      platformKey,
+      platform,
       {
         content_id: schedule.content_id,
         text: typeof payload === 'string' ? payload : '',
         platform_text: payload as string,
-        media_urls: [],
+        media_urls: mediaUrls,
         scheduled_time: schedule.scheduled_time,
         social_account_id: account.id,
       },

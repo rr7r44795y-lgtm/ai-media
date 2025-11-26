@@ -1,11 +1,12 @@
 import { supabaseService } from '../utils/supabaseClient.js';
 import { decryptToken } from '../utils/encryption.js';
-import { publishInstagram } from '../platforms/instagram.js';
+import { publishInstagramBusiness } from '../platforms/instagram.js';
 import { publishFacebook } from '../platforms/facebook.js';
 import { publishLinkedIn } from '../platforms/linkedin.js';
 import { publishYouTubeDraft } from '../platforms/youtube.js';
 import { SocialAccount } from '../platforms/types.js';
 import { ScheduleRecord } from '../types.js';
+import { refreshIfExpired } from '../utils/refreshToken.js';
 
 export type PublishPlatform = 'instagram_business' | 'facebook_page' | 'linkedin' | 'youtube_draft';
 
@@ -80,36 +81,51 @@ export async function validateScheduleForPublish(scheduleId: string): Promise<{ 
 
 export async function publishPost(platform: PublishPlatform, payload: PublishPayload, userId: string) {
   const socialAccount = await getAccount(payload.social_account_id, userId);
+  const refreshed = await refreshIfExpired(socialAccount.id);
+  if (refreshed.error) {
+    throw new PublisherError('token_refresh_failed');
+  }
+  const accessToken = refreshed.accessToken || decryptToken(socialAccount.access_token_encrypted as string);
+
+  if (!accessToken) {
+    throw new PublisherError('missing_access_token');
+  }
+
   const fallbackUrl = (id: string) => `https://social.example.com/${platform}/posts/${id}`;
   switch (platform) {
-    case 'instagram_business':
-      const ig = await publishInstagram({
+    case 'instagram_business': {
+      const ig = await publishInstagramBusiness({
         platform_text: payload.platform_text as string,
         media_urls: payload.media_urls,
         socialAccount,
+        accessToken,
       });
-      return { success: true, url: fallbackUrl(ig.id) };
-    case 'facebook_page':
+      return { success: true, url: ig.permalink };
+    }
+    case 'facebook_page': {
       const fb = await publishFacebook({
         platform_text: payload.platform_text as string,
         media_urls: payload.media_urls,
         socialAccount,
       });
       return { success: true, url: fallbackUrl(fb.id) };
-    case 'linkedin':
+    }
+    case 'linkedin': {
       const li = await publishLinkedIn({
         platform_text: payload.platform_text as string,
         media_urls: payload.media_urls,
         socialAccount,
       });
       return { success: true, url: fallbackUrl(li.id) };
-    case 'youtube_draft':
+    }
+    case 'youtube_draft': {
       const yt = await publishYouTubeDraft({
         platform_text: payload.platform_text as { title: string; description: string },
         media_urls: payload.media_urls,
         socialAccount,
       });
       return { success: true, url: fallbackUrl(yt.id) };
+    }
     default:
       throw new PublisherError('invalid_platform');
   }
