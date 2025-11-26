@@ -55,7 +55,11 @@ export async function exchangeLinkedInCode(
   }
 
   const profile = (await profileRes.json()) as { id?: string };
-  const externalId = profile.id || 'linkedin-user';
+  let externalId = profile.id || 'linkedin-user';
+
+  if (externalId && !externalId.startsWith('urn:li:')) {
+    externalId = `urn:li:person:${externalId}`;
+  }
 
   return [
     {
