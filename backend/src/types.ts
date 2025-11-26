@@ -44,6 +44,14 @@ export interface WorkerPublishResult {
   fallback_links?: string[];
 }
 
+export type WorkerRequest = {
+  id: string;
+};
+
+export type WorkerError = {
+  error: string;
+};
+
 export interface FeedbackPayload {
   type: 'bug' | 'feature' | 'billing' | 'oauth' | 'publish-error';
   message: string;

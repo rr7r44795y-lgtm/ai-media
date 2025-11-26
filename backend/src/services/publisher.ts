@@ -5,8 +5,18 @@ import { publishFacebook } from '../platforms/facebook.js';
 import { publishLinkedIn } from '../platforms/linkedin.js';
 import { publishYouTubeDraft } from '../platforms/youtube.js';
 import { SocialAccount } from '../platforms/types.js';
+import { ScheduleRecord } from '../types.js';
 
 export type PublishPlatform = 'instagram_business' | 'facebook_page' | 'linkedin' | 'youtube_draft';
+
+const validPlatforms: PublishPlatform[] = ['instagram_business', 'facebook_page', 'linkedin', 'youtube_draft'];
+
+export class PublisherError extends Error {
+  constructor(public code: string) {
+    super(code);
+    this.name = 'PublisherError';
+  }
+}
 
 export interface PublishPayload {
   content_id: string;
@@ -24,9 +34,48 @@ async function getAccount(id: string, userId: string): Promise<SocialAccount> {
     .eq('id', id)
     .eq('user_id', userId)
     .maybeSingle();
-  if (error || !data) throw new Error('Social account not found');
+  if (error || !data) throw new PublisherError('social_account_not_found');
   decryptToken(data.access_token_encrypted); // validate decryptable
   return data as SocialAccount;
+}
+
+export async function validateScheduleForPublish(scheduleId: string): Promise<{ schedule: ScheduleRecord; account: SocialAccount }> {
+  const { data, error } = await supabaseService.from('schedules').select('*').eq('id', scheduleId).maybeSingle();
+  if (error || !data) {
+    throw new PublisherError('not_found');
+  }
+
+  const schedule = data as ScheduleRecord & { social_account_id?: string };
+  if (schedule.status === 'cancelled') {
+    throw new PublisherError('cancelled');
+  }
+  if (schedule.status === 'success') {
+    throw new PublisherError('already_published');
+  }
+  if (!validPlatforms.includes(schedule.platform as PublishPlatform)) {
+    throw new PublisherError('invalid_platform');
+  }
+
+  const socialAccountId = schedule.social_account_id;
+  if (!socialAccountId) {
+    throw new PublisherError('social_account_missing');
+  }
+
+  const { data: account, error: accountErr } = await supabaseService
+    .from('social_accounts')
+    .select('*')
+    .eq('id', socialAccountId)
+    .maybeSingle();
+
+  if (accountErr || !account) {
+    throw new PublisherError('social_account_not_found');
+  }
+
+  if (account.user_id !== schedule.user_id) {
+    throw new PublisherError('forbidden');
+  }
+
+  return { schedule, account: account as SocialAccount };
 }
 
 export async function publishPost(platform: PublishPlatform, payload: PublishPayload, userId: string) {
@@ -34,18 +83,34 @@ export async function publishPost(platform: PublishPlatform, payload: PublishPay
   const fallbackUrl = (id: string) => `https://social.example.com/${platform}/posts/${id}`;
   switch (platform) {
     case 'instagram_business':
-      const ig = await publishInstagram({ platform_text: payload.platform_text as string, media_urls: payload.media_urls, socialAccount });
+      const ig = await publishInstagram({
+        platform_text: payload.platform_text as string,
+        media_urls: payload.media_urls,
+        socialAccount,
+      });
       return { success: true, url: fallbackUrl(ig.id) };
     case 'facebook_page':
-      const fb = await publishFacebook({ platform_text: payload.platform_text as string, media_urls: payload.media_urls, socialAccount });
+      const fb = await publishFacebook({
+        platform_text: payload.platform_text as string,
+        media_urls: payload.media_urls,
+        socialAccount,
+      });
       return { success: true, url: fallbackUrl(fb.id) };
     case 'linkedin':
-      const li = await publishLinkedIn({ platform_text: payload.platform_text as string, media_urls: payload.media_urls, socialAccount });
+      const li = await publishLinkedIn({
+        platform_text: payload.platform_text as string,
+        media_urls: payload.media_urls,
+        socialAccount,
+      });
       return { success: true, url: fallbackUrl(li.id) };
     case 'youtube_draft':
-      const yt = await publishYouTubeDraft({ platform_text: payload.platform_text as { title: string; description: string }, media_urls: payload.media_urls, socialAccount });
+      const yt = await publishYouTubeDraft({
+        platform_text: payload.platform_text as { title: string; description: string },
+        media_urls: payload.media_urls,
+        socialAccount,
+      });
       return { success: true, url: fallbackUrl(yt.id) };
     default:
-      throw new Error('Unsupported platform');
+      throw new PublisherError('invalid_platform');
   }
 }
