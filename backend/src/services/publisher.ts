@@ -5,7 +5,7 @@ import { publishFacebookPage } from '../platforms/facebook.js';
 import { publishLinkedIn } from '../platforms/linkedin.js';
 import { publishYouTubeDraft } from '../platforms/youtube.js';
 import { SocialAccount } from '../platforms/types.js';
-import { ScheduleRecord } from '../types.js';
+import { RefreshError, ScheduleRecord } from '../types.js';
 import { refreshIfExpired } from '../utils/refreshToken.js';
 
 export type PublishPlatform = 'instagram_business' | 'facebook_page' | 'linkedin' | 'youtube_draft';
@@ -81,11 +81,17 @@ export async function validateScheduleForPublish(scheduleId: string): Promise<{ 
 
 export async function publishPost(platform: PublishPlatform, payload: PublishPayload, userId: string) {
   const socialAccount = await getAccount(payload.social_account_id, userId);
-  const refreshed = await refreshIfExpired(socialAccount.id);
-  if (refreshed.error) {
+  let refreshed;
+  try {
+    refreshed = await refreshIfExpired(socialAccount.id);
+  } catch (err) {
+    if (err instanceof RefreshError) {
+      throw err;
+    }
     throw new PublisherError('token_refresh_failed');
   }
-  const accessToken = refreshed.accessToken || decryptToken(socialAccount.access_token_encrypted as string);
+
+  const accessToken = refreshed.access_token;
 
   if (!accessToken) {
     throw new PublisherError('missing_access_token');

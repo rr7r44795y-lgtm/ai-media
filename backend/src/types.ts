@@ -13,6 +13,16 @@ export interface OAuthTokenResult {
   expires_at: Date | null;
 }
 
+export class RefreshError extends Error {
+  provider: SocialPlatform;
+  retryable: boolean;
+  constructor(provider: SocialPlatform, message: string, retryable = true) {
+    super(message);
+    this.provider = provider;
+    this.retryable = retryable;
+  }
+}
+
 export type ScheduleStatus = 'pending' | 'processing' | 'success' | 'failed' | 'cancelled';
 
 export interface ScheduleRecord {

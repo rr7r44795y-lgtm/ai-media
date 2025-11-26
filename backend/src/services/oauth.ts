@@ -91,8 +91,25 @@ export async function refreshTokens(platform: Platform, refreshToken: string) {
       return refreshYouTubeToken(refreshToken, clientId, clientSecret);
     case 'facebook_page':
     case 'instagram_business':
-      // Facebook long-lived tokens cannot be refreshed via refresh_token grant. Reuse the existing token.
-      return { accessToken: refreshToken, refreshToken: null, expiresAt: null };
+      {
+        const params = new URLSearchParams({
+          grant_type: 'fb_exchange_token',
+          client_id: clientId,
+          client_secret: clientSecret,
+          fb_exchange_token: refreshToken,
+        });
+        const res = await fetch(`https://graph.facebook.com/v20.0/oauth/access_token?${params.toString()}`);
+        if (!res.ok) {
+          const body = await res.text();
+          throw new Error(`Meta refresh failed: ${body}`);
+        }
+        const json = (await res.json()) as { access_token: string; expires_in?: number };
+        return {
+          accessToken: json.access_token,
+          refreshToken: null,
+          expiresAt: json.expires_in ? new Date(Date.now() + json.expires_in * 1000).toISOString() : null,
+        };
+      }
     default:
       throw new Error('Unsupported platform');
   }

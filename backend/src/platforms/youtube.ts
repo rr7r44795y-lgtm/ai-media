@@ -1,5 +1,3 @@
-import { decryptToken } from '../utils/encryption.js';
-import { refreshIfExpired } from '../utils/refreshToken.js';
 import { SocialAccount } from './types.js';
 import { YouTubePublishResult } from '../types.js';
 
@@ -33,14 +31,7 @@ export async function publishYouTubeDraft(payload: YouTubeDraftPayload): Promise
     throw new Error('youtube_missing_media');
   }
 
-  const { socialAccount } = payload;
-  const refreshResult = await refreshIfExpired(socialAccount.id);
-  if (refreshResult.error) {
-    throw new Error('youtube_token_refresh_failed');
-  }
-
-  const accessToken =
-    payload.accessToken || refreshResult.accessToken || decryptToken(socialAccount.access_token_encrypted);
+  const accessToken = payload.accessToken;
   if (!accessToken) {
     throw new Error('youtube_missing_access_token');
   }
