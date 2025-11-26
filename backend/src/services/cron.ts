@@ -8,7 +8,10 @@ const DAILY_INTERVAL = '0 3 * * *';
 const enqueueWorker = async (id: string): Promise<void> => {
   await fetch(`${process.env.WORKER_ENDPOINT || 'http://localhost:4000'}/api/worker/publish?id=${id}`, {
     method: 'POST',
-    headers: { 'x-cron': 'true' },
+    headers: {
+      'x-cron': process.env.CRON_SECRET ?? 'true',
+      'x-worker-secret': process.env.WORKER_SECRET ?? '',
+    },
   });
 };
 
