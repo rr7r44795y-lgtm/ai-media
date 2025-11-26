@@ -38,6 +38,8 @@ export interface WorkerPublishResult {
   success: boolean;
   url?: string;
   error?: string;
+  fatal?: boolean;
+  fallback_links?: string[];
 }
 
 export interface FeedbackPayload {

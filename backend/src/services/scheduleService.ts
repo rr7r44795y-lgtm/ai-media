@@ -30,22 +30,28 @@ export const markSuccess = async (id: string, url: string): Promise<void> => {
     .eq('id', id);
 };
 
-const handleFallback = async (schedule: ScheduleRecord, error: string): Promise<void> => {
-  const signed = await createSignedContentLinks(schedule.content_id);
+const handleFallback = async (schedule: ScheduleRecord, error: string, links?: string[]): Promise<string[]> => {
+  const signed = links || (await createSignedContentLinks(schedule.content_id));
   await supabaseService
     .from('schedules')
     .update({
       status: 'failed',
       last_error: error,
       next_retry_at: null,
+      processing_started_at: null,
       fallback_sent: true,
       fallback_sent_at: new Date().toISOString(),
     })
     .eq('id', schedule.id);
   await sendFallbackEmail(schedule.user_id, schedule, signed, error);
+  return signed;
 };
 
-export const markFailure = async (schedule: ScheduleRecord, error: string): Promise<void> => {
+export const markFailure = async (
+  schedule: ScheduleRecord,
+  error: string,
+  options?: { forceFallback?: boolean; signedLinks?: string[] }
+): Promise<{ fallbackTriggered: boolean; signedLinks?: string[] }> => {
   const tries = (schedule.tries ?? 0) + 1;
   const baseUpdate: Partial<ScheduleRecord> = {
     tries,
@@ -53,14 +59,16 @@ export const markFailure = async (schedule: ScheduleRecord, error: string): Prom
     processing_started_at: null,
   };
 
-  if (tries >= 4) {
+  const shouldFallback = options?.forceFallback || tries >= 4;
+
+  if (shouldFallback) {
     baseUpdate.status = 'failed';
     baseUpdate.next_retry_at = null;
     baseUpdate.fallback_sent = true;
     baseUpdate.fallback_sent_at = new Date().toISOString();
     await supabaseService.from('schedules').update(baseUpdate).eq('id', schedule.id);
-    await handleFallback(schedule, error);
-    return;
+    const links = await handleFallback({ ...schedule, tries }, error, options?.signedLinks);
+    return { fallbackTriggered: true, signedLinks: links };
   }
 
   const delay = retryDelays[tries] ?? 600;
@@ -74,6 +82,7 @@ export const markFailure = async (schedule: ScheduleRecord, error: string): Prom
       next_retry_at: nextRetry,
     })
     .eq('id', schedule.id);
+  return { fallbackTriggered: false };
 };
 
 export const cancelSchedule = async (id: string, userId: string): Promise<boolean> => {

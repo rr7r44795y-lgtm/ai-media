@@ -13,7 +13,7 @@
 
 ## Backend (Render/Railway)
 - Runtime: Node 18+
-- Install command: `npm install`
+- Install command: `npm config set registry https://registry.npmmirror.com && npm install`
 - Build command: `npm run build`
 - Start command: `node dist/index.js`
 - Healthcheck: `GET /health`

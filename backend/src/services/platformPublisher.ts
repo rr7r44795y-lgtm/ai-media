@@ -2,8 +2,8 @@ import { supabaseService } from '../utils/supabaseClient.js';
 import { decryptToken } from '../utils/encryption.js';
 import { refreshIfExpired } from '../utils/refreshToken.js';
 import { WorkerPublishResult, ScheduleRecord } from '../types.js';
-import { publishPost } from './publisher.js';
-import { Platform } from './oauth.js';
+import { publishPost, PublishPlatform } from './publisher.js';
+import { createSignedContentLinks } from '../utils/storage.js';
 
 const platformRateLimits: Record<string, number> = {
   ig: 100,
@@ -32,6 +32,13 @@ async function checkRate(platform: string): Promise<boolean> {
   return true;
 }
 
+const platformMap: Record<string, PublishPlatform> = {
+  ig: 'instagram_business',
+  facebook: 'facebook_page',
+  linkedin: 'linkedin',
+  youtube_draft: 'youtube_draft',
+};
+
 export const publishToPlatform = async (
   schedule: ScheduleRecord
 ): Promise<WorkerPublishResult> => {
@@ -43,23 +50,26 @@ export const publishToPlatform = async (
     return { success: false, error: 'Rate limit exceeded' };
   }
 
+  const platformCandidates = [platformMap[platform] || platform, platform].filter(Boolean);
   const { data: account, error } = await supabaseService
     .from('social_accounts')
     .select('*')
     .eq('user_id', userId)
-    .eq('platform', platform)
+    .in('platform', platformCandidates)
     .eq('disabled', false)
     .maybeSingle();
 
   if (error || !account) {
-    return { success: false, error: 'Account not connected' };
+    const signedLinks = await createSignedContentLinks(schedule.content_id);
+    return { success: false, error: 'Account not connected', fatal: true, fallback_links: signedLinks };
   }
 
-  const platformKey: Platform = platform as Platform;
+  const platformKey: PublishPlatform = platformMap[platform] || (platform as PublishPlatform);
   const refreshed = await refreshIfExpired(platformKey, userId);
   if (refreshed.error) {
     await supabaseService.from('social_accounts').update({ disabled: true }).eq('id', account.id);
-    return { success: false, error: 'Token refresh failed' };
+    const signedLinks = await createSignedContentLinks(schedule.content_id);
+    return { success: false, error: 'Token refresh failed', fatal: true, fallback_links: signedLinks };
   }
 
   const accessToken = refreshed.accessToken || decryptToken(account.access_token_encrypted as string);

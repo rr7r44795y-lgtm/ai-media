@@ -24,7 +24,7 @@ router.delete('/:id', async (req, res) => {
     .eq('id', req.params.id)
     .eq('user_id', user.id);
   if (error) return res.status(500).json({ error: 'Unable to disconnect' });
-  return res.json({ status: 'disconnected' });
+  return res.json({ status: 'disconnected', id: req.params.id });
 });
 
 export default router;

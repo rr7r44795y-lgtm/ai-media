@@ -3,7 +3,7 @@ import { stripEmojis } from '../utils/text.js';
 export type PlatformKey = 'ig' | 'facebook' | 'linkedin' | 'youtube_draft';
 
 const config = {
-  instagram: {
+  ig: {
     maxLength: 2200,
     cta: '👇 Follow us for more updates',
   },
@@ -50,10 +50,10 @@ function addHashtags(text: string): string {
 function formatInstagram(text: string): string {
   const sanitized = sanitize(text);
   const withBreaks = sanitized.replace(/\n{2,}/g, '\n\n');
-  const truncated = withBreaks.length > config.instagram.maxLength
-    ? `${withBreaks.slice(0, config.instagram.maxLength - 3)}...`
+  const truncated = withBreaks.length > config.ig.maxLength
+    ? `${withBreaks.slice(0, config.ig.maxLength - 3)}...`
     : withBreaks;
-  return `${truncated}\n${config.instagram.cta}`.trim();
+  return `${truncated}\n${config.ig.cta}`.trim();
 }
 
 function formatFacebook(text: string): string {
