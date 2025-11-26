@@ -1,5 +1,5 @@
 import { supabaseService } from '../utils/supabaseClient.js';
-import { WorkerPublishResult, ScheduleRecord } from '../types.js';
+import { WorkerPublishResult, ScheduleRecord, RefreshError } from '../types.js';
 import { publishPost, PublishPlatform } from './publisher.js';
 import { createSignedContentLinks } from '../utils/storage.js';
 
@@ -112,6 +112,9 @@ export const publishToPlatform = async (
     }
     return result;
   } catch (e) {
+    if (e instanceof RefreshError) {
+      return { success: false, error: e.message, fatal: !e.retryable };
+    }
     return { success: false, error: e instanceof Error ? e.message : 'Publish failed' };
   }
 };

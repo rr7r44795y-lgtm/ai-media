@@ -1,47 +1,44 @@
 import { supabaseService } from './supabaseClient.js';
-import { decryptToken, encryptToken } from './encryption.js';
-import { Platform, refreshTokens } from '../services/oauth.js';
+import { decryptToken } from './encryption.js';
+import { RefreshError, SocialPlatform } from '../types.js';
+import { persistRefreshedTokens, refreshSocialAccount } from '../services/refresh.js';
 
-export async function refreshIfExpired(socialAccountId: string) {
-  const { data, error } = await supabaseService
+export interface RefreshedTokenResult {
+  access_token: string;
+  refresh_token?: string | null;
+  expires_at: Date | null;
+}
+
+export async function refreshIfExpired(socialAccountId: string): Promise<RefreshedTokenResult> {
+  const { data: account, error } = await supabaseService
     .from('social_accounts')
     .select('*')
     .eq('id', socialAccountId)
     .single();
 
-  if (error || !data) {
-    return { error: 'OAuth not found' };
+  const platform = (account?.platform as SocialPlatform) || 'facebook_page';
+
+  if (error || !account) {
+    throw new RefreshError(platform, 'OAuth not found', false);
+  }
+  const expiresAt = account.expires_at ? new Date(account.expires_at) : null;
+  const accessToken = account.access_token_encrypted ? decryptToken(account.access_token_encrypted) : null;
+  const refreshToken = account.refresh_token_encrypted ? decryptToken(account.refresh_token_encrypted) : null;
+
+  const threshold = new Date(Date.now() + 10 * 60 * 1000);
+  if (expiresAt && expiresAt > threshold && accessToken) {
+    return { access_token: accessToken, refresh_token: refreshToken, expires_at: expiresAt };
   }
 
-  const expiresAt = data.expires_at ? new Date(data.expires_at).getTime() : 0;
-  const now = Date.now();
-  if (expiresAt - now > 10 * 60 * 1000) {
-    return { accessToken: decryptToken(data.access_token_encrypted) };
-  }
+  const refreshed = await refreshSocialAccount({
+    id: account.id,
+    platform,
+    access_token_encrypted: account.access_token_encrypted,
+    refresh_token_encrypted: account.refresh_token_encrypted,
+    expires_at: account.expires_at,
+  });
 
-  if (!data.refresh_token_encrypted) {
-    return { accessToken: decryptToken(data.access_token_encrypted) };
-  }
+  await persistRefreshedTokens(account.id, refreshed, platform);
 
-  const refreshToken = decryptToken(data.refresh_token_encrypted);
-  try {
-    const refreshed = await refreshTokens(data.platform as Platform, refreshToken);
-    const updateRes = await supabaseService
-      .from('social_accounts')
-      .update({
-        access_token_encrypted: encryptToken(refreshed.accessToken),
-        refresh_token_encrypted: refreshed.refreshToken ? encryptToken(refreshed.refreshToken) : data.refresh_token_encrypted,
-        expires_at: refreshed.expiresAt || data.expires_at,
-      })
-      .eq('id', data.id);
-
-    if (updateRes.error) {
-      throw updateRes.error;
-    }
-
-    return { accessToken: refreshed.accessToken };
-  } catch (err) {
-    await supabaseService.from('social_accounts').update({ disabled: true }).eq('id', data.id);
-    return { error: 'Refresh failed' };
-  }
+  return refreshed;
 }

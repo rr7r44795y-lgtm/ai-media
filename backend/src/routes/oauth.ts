@@ -6,7 +6,7 @@ import { supabaseService } from '../utils/supabaseClient.js';
 import { createOAuthState, consumeOAuthState } from '../services/oauthStates.js';
 import { encryptToken } from '../utils/encryption.js';
 import authMiddleware from '../middleware/authMiddleware.js';
-import { SocialPlatform } from '../types.js';
+import { RefreshError, SocialPlatform } from '../types.js';
 
 const router = Router();
 
@@ -131,11 +131,15 @@ router.post('/:platform/refresh', authMiddleware, async (req, res) => {
     return res.status(400).json({ error: 'platform_mismatch' });
   }
 
-  const refreshed = await refreshIfExpired(socialAccountId);
-  if (refreshed.error) {
-    return res.status(400).json({ error: refreshed.error });
+  try {
+    const refreshed = await refreshIfExpired(socialAccountId);
+    res.json({ accessToken: refreshed.access_token });
+  } catch (err) {
+    if (err instanceof RefreshError) {
+      return res.status(err.retryable ? 400 : 403).json({ error: err.message });
+    }
+    return res.status(400).json({ error: 'Refresh failed' });
   }
-  res.json({ accessToken: refreshed.accessToken });
 });
 
 export default router;
