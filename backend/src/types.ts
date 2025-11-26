@@ -5,6 +5,15 @@ export interface AuthenticatedUser {
 
 export type SocialPlatform = 'instagram_business' | 'facebook_page' | 'linkedin' | 'youtube_draft';
 
+export interface OAuthTokenResult {
+  platform: SocialPlatform;
+  accessToken: string;
+  refreshToken?: string | null;
+  expiresAt?: string | null;
+  externalId: string;
+  scopes?: string[];
+}
+
 export type ScheduleStatus = 'pending' | 'processing' | 'success' | 'failed' | 'cancelled';
 
 export interface ScheduleRecord {

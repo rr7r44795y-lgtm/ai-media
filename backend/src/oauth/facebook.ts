@@ -1,22 +1,82 @@
-import { encryptToken } from '../utils/encryption.js';
-import { OAuthTokens } from './linkedin.js';
+import { OAuthTokenResult } from '../types.js';
 
 export function buildFacebookAuthUrl(state: string, redirect: string, clientId: string) {
   const params = new URLSearchParams({
     response_type: 'code',
     client_id: clientId,
     redirect_uri: redirect,
-    scope: 'pages_show_list,pages_read_engagement',
+    scope: 'pages_show_list,pages_read_engagement,pages_manage_posts',
     state,
   });
-  return `https://www.facebook.com/v19.0/dialog/oauth?${params.toString()}`;
+  return `https://www.facebook.com/v20.0/dialog/oauth?${params.toString()}`;
 }
 
-export async function exchangeFacebookCode(code: string): Promise<OAuthTokens> {
-  return {
-    accessToken: encryptToken(`fb_${code}`),
-    refreshToken: encryptToken(`fb_refresh_${code}`),
-    expiresAt: new Date(Date.now() + 3600_000).toISOString(),
-    externalId: `facebook-page-${code}`,
-  };
+interface MetaAccessTokenResponse {
+  access_token: string;
+  token_type?: string;
+  expires_in?: number;
+}
+
+interface MetaPageRecord {
+  id: string;
+  access_token?: string;
+  instagram_business_account?: { id: string } | null;
+}
+
+async function exchangeForLongLivedToken(params: URLSearchParams): Promise<MetaAccessTokenResponse> {
+  const res = await fetch(`https://graph.facebook.com/v20.0/oauth/access_token?${params.toString()}`);
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Facebook token exchange failed: ${body}`);
+  }
+  return (await res.json()) as MetaAccessTokenResponse;
+}
+
+export async function exchangeFacebookCode(
+  code: string,
+  redirectUri: string,
+  clientId: string,
+  clientSecret: string
+): Promise<OAuthTokenResult[]> {
+  const shortParams = new URLSearchParams({
+    client_id: clientId,
+    client_secret: clientSecret,
+    redirect_uri: redirectUri,
+    code,
+  });
+  const shortToken = await exchangeForLongLivedToken(shortParams);
+
+  const longParams = new URLSearchParams({
+    grant_type: 'fb_exchange_token',
+    client_id: clientId,
+    client_secret: clientSecret,
+    fb_exchange_token: shortToken.access_token,
+  });
+  const longToken = await exchangeForLongLivedToken(longParams);
+
+  const expiresAt = longToken.expires_in
+    ? new Date(Date.now() + longToken.expires_in * 1000).toISOString()
+    : null;
+
+  const pagesRes = await fetch(
+    `https://graph.facebook.com/v20.0/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${encodeURIComponent(
+      longToken.access_token
+    )}`
+  );
+
+  if (!pagesRes.ok) {
+    const body = await pagesRes.text();
+    throw new Error(`Unable to load Facebook Pages: ${body}`);
+  }
+
+  const pagesJson = (await pagesRes.json()) as { data?: MetaPageRecord[] };
+  const pages = pagesJson.data || [];
+
+  return pages.map<OAuthTokenResult>((page) => ({
+    platform: 'facebook_page',
+    accessToken: page.access_token || longToken.access_token,
+    refreshToken: null,
+    expiresAt,
+    externalId: page.id,
+  }));
 }
