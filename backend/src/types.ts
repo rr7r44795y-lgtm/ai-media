@@ -3,12 +3,14 @@ export interface AuthenticatedUser {
   token: string;
 }
 
+export type SocialPlatform = 'instagram_business' | 'facebook_page' | 'linkedin' | 'youtube_draft';
+
 export type ScheduleStatus = 'pending' | 'processing' | 'success' | 'failed' | 'cancelled';
 
 export interface ScheduleRecord {
   id: string;
   user_id: string;
-  platform: string;
+  platform: SocialPlatform;
   content_id: string;
   platform_text: unknown;
   scheduled_time: string;
@@ -26,7 +28,7 @@ export interface ScheduleRecord {
 
 export interface ScheduleCalendarItem {
   id: string;
-  platform: string;
+  platform: SocialPlatform;
   scheduled_time: string;
   status: ScheduleStatus;
   platform_text_preview: string;
